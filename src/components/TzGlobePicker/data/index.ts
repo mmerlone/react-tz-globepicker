@@ -1,0 +1,1 @@
+export { useGeoData } from "./useGeoData";
