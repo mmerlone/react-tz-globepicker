@@ -2,7 +2,11 @@ import { useMemo } from "react";
 import { getUtcOffsetMinutes } from "../../../utils/timezoneMapping";
 import { computeHighlightedData } from "../renderers";
 import type { HighlightedData } from "../renderers/BoundaryRenderer";
-import type { GeoData, TzBoundaryMode } from "../types/globe.types";
+import {
+  TZ_BOUNDARY_MODES,
+  type GeoData,
+  type TzBoundaryMode,
+} from "../types/globe.types";
 import { type buildLogger } from "../../../logger/client";
 
 interface UseComputedGlobeDataArgs {
@@ -29,19 +33,26 @@ export function useComputedGlobeData({
 }: UseComputedGlobeDataArgs): UseComputedGlobeDataResult {
   // ── UTC Offset Pre-computation ───────────────────────────────────────────
   const featureOffsets = useMemo(() => {
-    if (!geoData?.timezones) return new Map<string, number>();
+    // Do not attempt to build offsets while data is loading. Return empty map silently.
+    if (!geoData?.ianaTimezones) return new Map<string, number>();
+
     const offsetMap = new Map<string, number>();
     const uniqueTzids = new Set<string>();
-    geoData.timezones.features.forEach((f) => {
+    geoData.ianaTimezones.features.forEach((f) => {
       const tzid = f.properties?.tzid as string;
       if (tzid) uniqueTzids.add(tzid);
     });
+
+    logger.info(
+      { count: uniqueTzids.size, sample: Array.from(uniqueTzids).slice(0, 5) },
+      "Building feature offsets from geoData.ianaTimezones",
+    );
 
     uniqueTzids.forEach((tzid) => {
       offsetMap.set(tzid, getUtcOffsetMinutes(tzid));
     });
     return offsetMap;
-  }, [geoData]);
+  }, [geoData, logger]);
 
   // ── Highlighted Feature Computation ────────────────────────────────────────
   const highlightedData = useMemo(() => {
@@ -49,9 +60,10 @@ export function useComputedGlobeData({
       logger.info({}, "No geoData available for highlightedData computation");
       return null;
     }
-    // Fail fast for all modes, log only presence/absence
+
+    // Fail-fast checks for explicit mode requirements
     if (
-      showTZBoundaries === "iana" &&
+      showTZBoundaries === TZ_BOUNDARY_MODES.IANA &&
       (!geoData.countries || !geoData.topology)
     ) {
       logger.error(
@@ -64,22 +76,27 @@ export function useComputedGlobeData({
       );
       return null;
     }
-    if (showTZBoundaries === "iso8601" && !geoData.topology) {
+
+    if (showTZBoundaries === TZ_BOUNDARY_MODES.ISO8601 && !geoData.topology) {
       logger.error(
         { hasTopology: Boolean(geoData.topology), mode: "iso8601" },
-        "[TzGlobePicker] showTZBoundaries='iso8601' but required topology data is missing",
-      );
-      return null;
-    }
-    if (showTZBoundaries === "nautic" && !geoData.timezones) {
-      logger.error(
-        { hasTimezones: Boolean(geoData.timezones), mode: "nautic" },
-        "[TzGlobePicker] showTZBoundaries='nautic' but required timezones data is missing",
+        "[TzGlobePicker] showTZBoundaries='iso8601' but required topology is missing",
       );
       return null;
     }
 
-    if (showTZBoundaries !== "none") {
+    if (
+      showTZBoundaries === TZ_BOUNDARY_MODES.NAUTIC &&
+      !geoData.ianaTimezones
+    ) {
+      logger.error(
+        { hasIana: Boolean(geoData.ianaTimezones), mode: "nautic" },
+        "[TzGlobePicker] showTZBoundaries='nautic' but required ianaTimezones data is missing",
+      );
+      return null;
+    }
+
+    if (showTZBoundaries !== TZ_BOUNDARY_MODES.NONE) {
       logger.info({ showTZBoundaries }, "Computing highlightedData");
     }
 

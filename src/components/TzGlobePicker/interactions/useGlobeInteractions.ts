@@ -209,7 +209,38 @@ export function useGlobeInteractions({
    * - Drag end: Handles clicks and applies inertia
    * - Wheel zoom: Handles mouse wheel zoom events
    */
+  // Track canvas readiness to handle the race condition where canvas hasn't mounted yet
+  const [canvasReady, setCanvasReady] = useState(false);
+
+  // Detect when canvas becomes available - refs don't trigger re-renders when .current changes
   React.useEffect(() => {
+    const MAX_WAIT_MS = 5000; // 5 second timeout
+    const startTime = Date.now();
+
+    if (canvasRef.current) {
+      setCanvasReady(true);
+    } else {
+      // Poll for canvas availability with timeout to prevent infinite polling
+      const intervalId = setInterval((): void => {
+        if (canvasRef.current) {
+          setCanvasReady(true);
+          clearInterval(intervalId);
+        } else if (Date.now() - startTime > MAX_WAIT_MS) {
+          logger.warn(
+            { waitTime: MAX_WAIT_MS },
+            "Canvas not available after timeout - interactions may not work",
+          );
+          clearInterval(intervalId);
+        }
+      }, 50);
+      return (): void => clearInterval(intervalId);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    // Wait for canvas to be ready
+    if (!canvasReady) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -345,6 +376,7 @@ export function useGlobeInteractions({
       canvas.removeEventListener("wheel", onWheel);
     };
   }, [
+    canvasReady,
     handleMouseMove,
     handleMouseLeave,
     handleWheel,

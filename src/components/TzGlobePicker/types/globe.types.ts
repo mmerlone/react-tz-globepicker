@@ -1,3 +1,14 @@
+/**
+ * TzGlobePicker types
+ *
+ * Conventions:
+ * - `Coordinate`: [longitude, latitude] (matches D3 / GeoJSON order)
+ * - `LatLng`: [latitude, longitude] (used for convenience in marker data)
+ *
+ * Be careful: both tuple shapes exist in this codebase to match external
+ * data sources and D3 expectations — double-check the type when passing
+ * coordinates between utils and renderers.
+ */
 import type { FeatureCollection, Feature } from "geojson";
 import type { GeoProjection } from "d3-geo";
 import type { Topology } from "topojson-specification";
@@ -20,7 +31,11 @@ export type RenderFn = (
 
 /** Geographic data loaded from unified source (globe-data.json) */
 export interface GeoData {
-  /** Natural Earth 10m timezones (merged + simplified) */
+  /** IANA timezone boundaries (accurate land boundaries from timezone-boundary-builder) */
+  ianaTimezones: FeatureCollection;
+  /** ISO8601 timezone polygons (includes ocean areas from Natural Earth) */
+  iso8601Timezones: FeatureCollection;
+  /** Legacy property - now points to ianaTimezones for backward compatibility */
   timezones: FeatureCollection;
   /** World 110m countries (context layer) */
   countries?: FeatureCollection | null;
@@ -102,9 +117,13 @@ export interface CachedNight {
 
 /** Canonical boundary visualization mode values. */
 export const TZ_BOUNDARY_MODES = {
+  /** 15-degree longitudinal band centered on timezone's canonical longitude. Fast to compute, but less accurate. */
   NAUTIC: "nautic",
+  /** Merged high-level timezone shape based on ISO8601 standard. */
   ISO8601: "iso8601",
+  /** Individual country-level polygons based on IANA timezone data. */
   IANA: "iana",
+  /** No boundaries or highlights. */
   NONE: "none",
 } as const;
 
@@ -136,6 +155,16 @@ export interface TzGlobePickerProps {
   /** Initial zoom level. Defaults to 1. */
   initialZoom?: number;
   /**
+   * Optional externally-controlled zoom value. When provided, the component
+   * will follow this value and update its internal projection scale accordingly.
+   */
+  zoom?: number;
+  /**
+   * Called whenever the globe's zoom changes due to user interaction or
+   * programmatic animation. Useful for keeping external UI in sync.
+   */
+  onZoomChange?: (zoom: number) => void;
+  /**
    * Timezone boundary visualization mode.
    * - 'nautic': 15-degree longitudinal band.
    * - 'iso8601': Merged high-level timezone shape.
@@ -146,6 +175,11 @@ export interface TzGlobePickerProps {
   showTZBoundaries?: TzBoundaryMode;
   /** Whether to render country borders. Defaults to false. */
   showCountryBorders?: boolean;
+  /**
+   * Geographic lines – Polar circles, tropical circles, equator, and International Date Line.
+   * @link https://www.naturalearthdata.com/downloads/110m-physical-vectors/110m-geographic-lines/
+   */
+  showGeographic?: boolean;
   /** Globe background: solid color string, JSX element, or null/undefined for transparent
    * TODO: add 'default' option to use the SpaceBackground component.
    */
@@ -158,4 +192,9 @@ export interface TzGlobePickerProps {
   className?: string;
   /** Colors for globe rendering. Defaults to COLORS constant. */
   colors?: Partial<GlobePalette>;
+  /**
+   * Timestamp that triggers a flyTo animation to the current timezone when changed.
+   * Use this to programmatically reset the view to the selected timezone.
+   */
+  flyToTrigger?: number;
 }

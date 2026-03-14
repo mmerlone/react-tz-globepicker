@@ -13,12 +13,11 @@
 import {
   geoPath,
   geoContains,
-  geoCentroid,
   type GeoPermissibleObjects,
   type GeoProjection,
 } from "d3-geo";
 import { merge } from "topojson-client";
-import type { Feature } from "geojson";
+import type { Feature, Geometry, FeatureCollection } from "geojson";
 import type {
   GeometryCollection,
   Polygon,
@@ -48,6 +47,8 @@ export interface HighlightedData {
   features: Feature[];
   /** Merged geometry combining all matching features (for iso8601 mode) */
   merged: unknown;
+  /** Optional exclusion geometries (GeoJSON features) used to subtract areas from nautic band */
+  exclusions?: Feature[];
 }
 
 /**
@@ -158,7 +159,7 @@ export function renderBoundaries({
       );
       return;
     }
-    logger.info(
+    logger.debug(
       { timezone, mode: "iana" },
       "Drawing highlighted features for 'iana' mode",
     );
@@ -184,17 +185,96 @@ export function renderBoundaries({
       );
       return;
     }
-    logger.info(
+    logger.debug(
       { timezone, mode: "iso8601" },
       "Drawing merged boundary feature",
     );
-    ctx.beginPath();
-    pathGen(highlightedData.merged as GeoPermissibleObjects);
-    ctx.fillStyle = getColor(colors, "highlightFill");
-    ctx.fill();
-    ctx.strokeStyle = getColor(colors, "highlightStroke");
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
+
+    // Expect merged to be a FeatureCollection: [mergedIana, nauticBand]
+    const mc = highlightedData.merged as FeatureCollection;
+    const mergedFeatures: Feature[] = mc?.features ?? [];
+    const mergedIana = mergedFeatures[0];
+    const nauticBand = mergedFeatures[1];
+
+    // Compose highlight into a single painted image to avoid visible
+    // seam/overlap between nautic band and merged IANA geometry. We render
+    // into an offscreen canvas, perform subtraction of exclusions there,
+    // then blit the result to the main context in a single draw call.
+    const canMakeOffscreen = typeof document !== "undefined" && ctx?.canvas;
+    if (canMakeOffscreen) {
+      try {
+        const off = document.createElement("canvas");
+        off.width = ctx.canvas.width;
+        off.height = ctx.canvas.height;
+        const offCtx = off.getContext("2d");
+        if (offCtx) {
+          const offPath = geoPath(projection, offCtx);
+
+          // Draw nautic band + merged IANA into a single path so overlaps
+          // are filled only once (no double-painted areas).
+          offCtx.beginPath();
+          if (nauticBand) offPath(nauticBand as GeoPermissibleObjects);
+          if (mergedIana) offPath(mergedIana as GeoPermissibleObjects);
+          offCtx.fillStyle = getColor(colors, "highlightFill");
+          offCtx.fill();
+          offCtx.strokeStyle = getColor(colors, "highlightStroke");
+          offCtx.lineWidth = 1.2;
+          offCtx.stroke();
+
+          // Subtract exclusions *after* filling both shapes so they are
+          // removed from the combined highlight, producing a single merged
+          // painted area.
+          if (highlightedData.exclusions?.length) {
+            offCtx.globalCompositeOperation = "destination-out";
+            for (const ex of highlightedData.exclusions) {
+              offCtx.beginPath();
+              offPath(ex as GeoPermissibleObjects);
+              offCtx.fill();
+            }
+            offCtx.globalCompositeOperation = "source-over";
+          }
+
+          // Blit composed highlight as a single image
+          ctx.drawImage(off, 0, 0);
+          return;
+        }
+      } catch (err) {
+        // Fall through to the immediate-draw behavior below if offscreen fails
+        logger.debug(
+          { err },
+          "Offscreen composition failed, falling back to direct draw",
+        );
+      }
+    }
+
+    // Fallback: draw as before (nautic then subtract then merged IANA)
+    if (nauticBand) {
+      ctx.save();
+      ctx.beginPath();
+      pathGen(nauticBand as GeoPermissibleObjects);
+      ctx.fillStyle = getColor(colors, "highlightFill");
+      ctx.fill();
+
+      if (highlightedData.exclusions?.length) {
+        ctx.globalCompositeOperation = "destination-out";
+        for (const ex of highlightedData.exclusions) {
+          ctx.beginPath();
+          pathGen(ex as GeoPermissibleObjects);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
+
+    if (mergedIana) {
+      ctx.beginPath();
+      pathGen(mergedIana as GeoPermissibleObjects);
+      ctx.fillStyle = getColor(colors, "highlightFill");
+      ctx.fill();
+      ctx.strokeStyle = getColor(colors, "highlightStroke");
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
   }
 }
 
@@ -240,25 +320,37 @@ export function computeHighlightedData({
   featureOffsets: Map<string, number>;
   mode: TzBoundaryMode;
 }): HighlightedData | null {
-  // Validate required data
-  if (!geoData?.timezones || !geoData?.topology || !timezone) return null;
+  // Validate required data: require explicit IANA or ISO8601 collections depending on mode
+  if (!geoData?.topology || !timezone) {
+    logger.error(
+      {
+        hasTopology: Boolean(geoData?.topology),
+      },
+      "Missing required geoData.topology or timezone",
+    );
+    return null;
+  }
+
+  // For robust ISO8601 behavior we always match against IANA features for
+  // exact-id and offset-based grouping. The ISO8601 topology/iso polygons are
+  // used only for rendering coverage (ocean inclusion) if desired; matching
+  // must rely on IANA features which contain tzid properties.
+  if (!geoData.ianaTimezones) {
+    logger.error({ hasIana: false, mode }, "Missing geoData.ianaTimezones");
+    return null;
+  }
 
   // Get target UTC offset for offset-based matching
   const targetOffset = featureOffsets.get(timezone) ?? 0;
 
-  // ── Step 1: Find features by exact ID or UTC offset match ───────────────────
-  const matchingFeatures = geoData.timezones.features.filter((f) => {
+  // Step 1: Find IANA features by exact ID or UTC offset match
+  const matchingFeatures = geoData.ianaTimezones.features.filter((f) => {
     const fTzid = f.properties?.tzid as string;
     if (!fTzid) return false;
-
-    // Priority 1: Exact timezone identifier match
     if (fTzid === timezone) return true;
-
-    // Priority 2: Same UTC offset (for similar timezones), iso8601 mode only.
     if (mode === TZ_BOUNDARY_MODES.ISO8601) {
       return featureOffsets.get(fTzid) === targetOffset;
     }
-
     return false;
   });
 
@@ -271,7 +363,7 @@ export function computeHighlightedData({
     // Skip containment check for invalid coordinates (except UTC)
     if (!(cLat === 0 && cLng === 0 && timezone !== "UTC")) {
       const point: [number, number] = [cLng, cLat];
-      const found = geoData.timezones.features.find((f) =>
+      const found = geoData.ianaTimezones.features.find((f) =>
         geoContains(f, point),
       );
       if (found) matchingFeatures.push(found);
@@ -279,55 +371,128 @@ export function computeHighlightedData({
   }
 
   // Return null if no matching features found at all
-  if (matchingFeatures.length === 0) return null;
+  if (matchingFeatures.length === 0) {
+    logger.warn(
+      { timezone, mode },
+      "No matching timezone features found - returning null",
+    );
+    return null;
+  }
+
+  logger.debug(
+    { timezone, mode, matchingFeaturesCount: matchingFeatures.length },
+    "Found matching timezone features",
+  );
 
   if (mode === TZ_BOUNDARY_MODES.IANA) {
-    if (!geoData.countries) return null;
-
-    const matchingCountryFeatures = geoData.countries.features.filter((f) => {
-      const centroid = geoCentroid(f);
-      if (!Number.isFinite(centroid[0]) || !Number.isFinite(centroid[1])) {
-        return false;
-      }
-
-      return matchingFeatures.some((tzFeature) =>
-        geoContains(tzFeature, centroid),
+    // IANA mode: return the timezone polygon(s) themselves (no country translation).
+    // Fail fast if no matching timezone polygon was found.
+    if (matchingFeatures.length === 0) {
+      logger.warn(
+        { timezone },
+        "IANA mode: no matching IANA polygon features found",
       );
-    });
-
+      return null;
+    }
     return {
-      features: matchingCountryFeatures,
+      features: matchingFeatures,
       merged: null,
     };
   }
+  // For ISO8601 mode we want to return a merged geometry that is the union
+  // of all IANA zones sharing the same offset plus the nautic band. We'll
+  // find corresponding topology geometries in the `iana_timezones` topology
+  // and merge them with topojson-client. If no topology is present, return
+  // matching features only.
+  if (mode === TZ_BOUNDARY_MODES.ISO8601) {
+    if (!geoData.topology?.objects?.iana_timezones) {
+      logger.error(
+        { hasTopology: Boolean(geoData.topology) },
+        "Missing topology for ISO8601 merged geometry",
+      );
+      return { features: matchingFeatures, merged: null };
+    }
 
-  // ── Step 3: Create merged geometry for iso8601 mode ───────────────────────
-  const objects = geoData.topology.objects.timezones as GeometryCollection;
+    const ianaObjs = geoData.topology.objects.iana_timezones as
+      | GeometryCollection
+      | undefined;
+    if (!ianaObjs) {
+      logger.error({ mode }, "Topology missing iana_timezones object");
+      return { features: matchingFeatures, merged: null };
+    }
 
-  // Filter geometries that match our criteria using type assertions
-  const matchingGeoms = objects.geometries.filter(
-    (g): g is Polygon | MultiPolygon => {
-      // Type guard to check if geometry has properties
-      if (!("properties" in g) || !g.properties) return false;
+    // Map matching tzids for quick lookup
+    const matchSet = new Set(
+      matchingFeatures.map((f) => (f.properties?.tzid as string) ?? ""),
+    );
 
-      const gProperties = g.properties as Record<string, unknown>;
-      const gTzid = gProperties.tzid as string;
-      if (!gTzid) return false;
+    const matchingGeoms = ianaObjs.geometries.filter(
+      (g): g is Polygon | MultiPolygon => {
+        if (!g || !("properties" in g) || !g.properties) return false;
+        const props = g.properties as Record<string, unknown>;
+        const gTz = (props.tzid as string) || "";
+        if (!gTz) return false;
+        return (
+          matchSet.has(gTz) &&
+          (g.type === "Polygon" || g.type === "MultiPolygon")
+        );
+      },
+    );
 
-      // Apply same matching logic as features (exact ID or offset match)
-      const isMatch =
-        gTzid === timezone ||
-        (mode === TZ_BOUNDARY_MODES.ISO8601 &&
-          featureOffsets.get(gTzid) === targetOffset);
+    // Use GeoJSON `Geometry` to represent the merged result; topojson-client's
+    // `merge` return types are sometimes declared as topojson-spec types which
+    // don't match the GeoJSON types used elsewhere. Use a safe unknown cast.
+    let mergedIanaGeom: Geometry | null = null;
+    try {
+      if (matchingGeoms.length > 0) {
+        mergedIanaGeom = merge(geoData.topology, matchingGeoms);
+      }
+    } catch (err) {
+      logger.error(
+        { err },
+        "topojson.merge failed for matching IANA geometries",
+      );
+      mergedIanaGeom = null;
+    }
 
-      // Only include polygon geometries (skip points, lines, etc.)
-      return isMatch && (g.type === "Polygon" || g.type === "MultiPolygon");
-    },
-  );
+    // Build nautic band (same as NAUTIC mode)
+    const centerLng = getUtcOffsetHour(timezone) * 15;
+    const nauticBand = {
+      type: "Polygon" as const,
+      coordinates: [
+        [
+          [centerLng - 7.5, 89],
+          [centerLng + 7.5, 89],
+          [centerLng + 7.5, -89],
+          [centerLng - 7.5, -89],
+          [centerLng - 7.5, 89],
+        ],
+      ],
+    };
 
-  // Return both individual features and merged geometry
-  return {
-    features: matchingFeatures,
-    merged: merge(geoData.topology, matchingGeoms),
-  };
+    // Compose final merged geometry as a GeoJSON FeatureCollection containing
+    // the merged IANA geometry (if present) and the nautic band. Renderer
+    // can draw the collection to achieve the desired union effect.
+    const mergedCollection: Feature[] = [];
+    if (mergedIanaGeom) {
+      mergedCollection.push({
+        type: "Feature",
+        properties: { role: "mergedIana" },
+        geometry: mergedIanaGeom,
+      });
+    }
+    mergedCollection.push({
+      type: "Feature",
+      properties: { role: "mergedIana" },
+      geometry: nauticBand,
+    });
+
+    return {
+      features: matchingFeatures,
+      merged: { type: "FeatureCollection", features: mergedCollection },
+    };
+  }
+
+  // For other modes that reach here return match-only
+  return { features: matchingFeatures, merged: null };
 }

@@ -1,7 +1,12 @@
 import { geoGraticule } from "d3-geo";
 
 /**
- * Globe constants for TzGlobePicker
+ * Module: globe.constants
+ *
+ * Shared numeric and color constants used by the globe renderer. Values are
+ * expressed in logical units (pixels, degrees, multipliers) and are intended
+ * to be safe to override via the `colors` prop or consumer constants when
+ * customizing appearance.
  */
 
 /** Globe axial tilt in degrees (Earth's obliquity ≈ 23.44°) */

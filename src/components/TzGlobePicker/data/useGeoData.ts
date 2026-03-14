@@ -59,11 +59,28 @@ export function useGeoData(): {
         // Convert generated topology to standard Topology type
         const topology = convertToStandardTopology(globeDataRaw);
 
-        // Extract features using utility function
-        const timezones = extractFeatures(topology, "timezones");
-        if (!timezones) {
-          logger.error({}, "Failed to extract timezone features from topology");
-          throw new Error("Failed to extract timezone features from topology");
+        // Extract IANA timezone boundaries (accurate land boundaries)
+        const ianaTimezones = extractFeatures(topology, "iana_timezones");
+        if (!ianaTimezones) {
+          logger.error(
+            {},
+            "Failed to extract IANA timezone features from topology",
+          );
+          throw new Error(
+            "Failed to extract IANA timezone features from topology",
+          );
+        }
+
+        // Extract ISO8601 timezone polygons (includes ocean areas)
+        const iso8601Timezones = extractFeatures(topology, "iso8601_timezones");
+        if (!iso8601Timezones) {
+          logger.error(
+            {},
+            "Failed to extract ISO8601 timezone features from topology",
+          );
+          throw new Error(
+            "Failed to extract ISO8601 timezone features from topology",
+          );
         }
 
         // Parse countries (optional context)
@@ -72,12 +89,19 @@ export function useGeoData(): {
         logger.info(
           {
             hasCountries: Boolean(countries),
-            hasTimezones: Boolean(timezones),
+            hasIanaTimezones: Boolean(ianaTimezones),
+            hasIso8601Timezones: Boolean(iso8601Timezones),
           },
           "Extracted features from topology",
         );
         if (!isMounted) return;
-        setGeoData({ timezones, countries, topology });
+        setGeoData({
+          ianaTimezones,
+          iso8601Timezones,
+          timezones: ianaTimezones,
+          countries,
+          topology,
+        });
         logger.info(
           { component: "useGeoData" },
           "Successfully loaded bundled globe data",

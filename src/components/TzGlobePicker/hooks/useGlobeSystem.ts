@@ -16,13 +16,14 @@ import {
   disposeWebGLRenderer,
   type WebGLRendererProgram,
 } from "../renderers/WebGLPenumbraRenderer";
-import type {
-  RenderFn,
-  MarkerEntry,
-  CachedNight,
-  GlobePalette,
-  GeoData,
-  TzBoundaryMode,
+import {
+  type RenderFn,
+  type MarkerEntry,
+  type CachedNight,
+  type GlobePalette,
+  type GeoData,
+  type TzBoundaryMode,
+  TZ_BOUNDARY_MODES,
 } from "../types/globe.types";
 import type { HighlightedData } from "../renderers/BoundaryRenderer";
 import type { GlobeState } from "./useGlobeState";
@@ -57,6 +58,19 @@ interface UseGlobeSystemOptions {
 /**
  * Encapsulates the configuration of the D3 projection, HTML5 Canvas dimensions,
  * WebGL renderer setup, and the central `render()` function that paints all layers.
+ */
+/**
+ * System hook that initializes the D3 projection, canvas sizing, optional
+ * WebGL penumbra renderer and the central `render` function used by the
+ * component.
+ *
+ * Responsibilities:
+ * - Configure canvas size and device-pixel-ratio backing store
+ * - Create / dispose a WebGL-based penumbra renderer when available
+ * - Populate `renderRef.current` with the composed render function
+ *
+ * Note: this hook owns the lifecycle of the WebGL renderer returned via
+ * `createWebGLRenderer` and will dispose it on cleanup.
  */
 export function useGlobeSystem({
   canvasRef,
@@ -116,7 +130,7 @@ export function useGlobeSystem({
       });
 
       // 2. Timezone boundaries
-      if (showTZBoundaries !== "none") {
+      if (showTZBoundaries !== TZ_BOUNDARY_MODES.NONE) {
         renderBoundaries({
           projection,
           ctx,
@@ -128,6 +142,7 @@ export function useGlobeSystem({
       }
 
       // 3. Markers
+
       if (effectiveShowMarkers) {
         renderMarkers({
           projection,
@@ -171,7 +186,12 @@ export function useGlobeSystem({
   // ── Render Reference Management ───────────────────────────────────────────
   useEffect(() => {
     renderRef.current = render;
-  }, [render]);
+
+    // Trigger a render when colors change
+    if (geoData && projectionRef.current && ctxRef.current) {
+      renderRef.current(projectionRef.current, ctxRef.current);
+    }
+  }, [render, geoData, projectionRef, ctxRef]);
 
   // ── Canvas & Projection Initialization ─────────────────────────────────────
   useEffect(() => {
@@ -241,6 +261,29 @@ export function useGlobeSystem({
       renderRef.current(projectionRef.current, ctxRef.current);
     }
   }, [size, timezone, geoData, highlightedData]);
+
+  // ── Re-render when marker visibility or marker set changes
+  // Ensures toggling `showMarkers` immediately updates the canvas.
+  useEffect(() => {
+    if (geoData && projectionRef.current && ctxRef.current) {
+      renderRef.current(projectionRef.current, ctxRef.current);
+    }
+  }, [effectiveShowMarkers, activeMarkers]);
+
+  // Re-render when zoom marker scaling changes so marker sizes update live
+  useEffect(() => {
+    if (geoData && projectionRef.current && ctxRef.current) {
+      renderRef.current(projectionRef.current, ctxRef.current);
+    }
+  }, [zoomMarkers]);
+
+  // Re-render when country borders visibility changes so the border
+  // stroke is drawn/removed immediately when toggled.
+  useEffect(() => {
+    if (geoData && projectionRef.current && ctxRef.current) {
+      renderRef.current(projectionRef.current, ctxRef.current);
+    }
+  }, [showCountryBorders]);
 
   // ── Data Change Trigger ─────────────────────────────────────────────────
   useEffect(() => {

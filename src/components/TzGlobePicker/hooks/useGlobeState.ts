@@ -64,6 +64,14 @@ export interface GlobeState {
   setHoveredTimezone: (tz: string | null) => void;
 }
 
+/**
+ * Options passed to `useGlobeState` hook.
+ *
+ * - `externalZoom`: when provided the hook treats zoom as controlled by the
+ *   caller and will adjust the projection scale to match.
+ * - `onZoomChange`: notified when the hook updates the internal zoom value
+ *   (either via user interaction or programmatic animations).
+ */
 interface UseGlobeStateOptions {
   timezone: string | null | undefined;
   projectionRef: React.MutableRefObject<GeoProjection | null>;
@@ -73,8 +81,31 @@ interface UseGlobeStateOptions {
   minZoom?: number;
   maxZoom?: number;
   initialZoom?: number;
+  /** externally controlled zoom value */
+  externalZoom?: number;
+  /** called when zoom changes */
+  onZoomChange?: (zoom: number) => void;
 }
 
+/**
+ * Hook that encapsulates the globe interaction state and exposes imperative
+ * methods used by higher-level controllers.
+ *
+ * The returned object contains both React state (cursor style) and a set of
+ * refs/actions that schedule/cancel animation frames. Callers are expected
+ * to provide `projectionRef`, `ctxRef` and `renderRef` that the hook will
+ * use when performing animations or immediate renders.
+ *
+ * Important lifecycle notes:
+ * - `flyTo`, `applyInertia` and `handleWheel` may schedule animation frames
+ *   and internally cancel previously scheduled frames via
+ *   `cancelAnimationFrame`.
+ * - Consumers should avoid calling conflicting actions concurrently; the
+ *   hook cancels ongoing animations when a new animation is started.
+ *
+ * @param options - Configuration controlling initial zoom, projection refs and callbacks
+ * @returns GlobeState - refs, UI state and imperative actions for controlling the globe
+ */
 export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
   const {
     timezone: tz,
@@ -85,6 +116,8 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
     minZoom = MIN_ZOOM,
     maxZoom = MAX_ZOOM,
     initialZoom = 1,
+    externalZoom,
+    onZoomChange,
   } = options;
 
   // Core state refs
@@ -174,6 +207,7 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
         if (dZoom !== 0) {
           zoomRef.current = startZoom + dZoom * ease;
           projection.scale(baseScale * zoomRef.current);
+          if (onZoomChange) onZoomChange(zoomRef.current);
         }
 
         projection.rotate(rotationRef.current);
@@ -194,6 +228,7 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
           if (dZoom !== 0) {
             zoomRef.current = targetZoom;
             projection.scale(baseScale * targetZoom);
+            if (onZoomChange) onZoomChange(zoomRef.current);
           }
           projection.rotate(targetRotation);
           try {
@@ -210,7 +245,7 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
 
       flyToFrameRef.current = requestAnimationFrame(animate);
     },
-    [cancelAnimations, projectionRef, ctxRef, renderRef, logger],
+    [cancelAnimations, projectionRef, ctxRef, renderRef, logger, onZoomChange],
   );
 
   // Reset view to timezone center
@@ -344,7 +379,7 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
       );
       zoomRef.current = newZoom;
       projection.scale(baseScaleRef.current * newZoom);
-
+      if (onZoomChange) onZoomChange(zoomRef.current);
       if (renderFrameRef.current) {
         cancelAnimationFrame(renderFrameRef.current);
       }
@@ -352,13 +387,42 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
         renderFn(projection, ctx),
       );
     },
-    [cancelAnimations, minZoom, maxZoom],
+    [cancelAnimations, minZoom, maxZoom, onZoomChange],
   );
 
   // Set hovered timezone
   const setHoveredTimezone = useCallback((timezone: string | null): void => {
     hoveredTzRef.current = timezone;
   }, []);
+
+  // Respond to externally-controlled zoom changes (controlled prop)
+  useEffect(() => {
+    if (typeof externalZoom !== "number") return;
+    const clamped = Math.max(minZoom, Math.min(maxZoom, externalZoom));
+    if (clamped === zoomRef.current) return;
+    zoomRef.current = clamped;
+    const projection = projectionRef.current;
+    if (projection) {
+      projection.scale(baseScaleRef.current * clamped);
+      if (ctxRef.current) {
+        try {
+          renderRef.current(projection, ctxRef.current);
+        } catch {
+          /* ignore render errors here */
+        }
+      }
+    }
+    if (onZoomChange) onZoomChange(zoomRef.current);
+  }, [
+    externalZoom,
+    minZoom,
+    maxZoom,
+    projectionRef,
+    baseScaleRef,
+    renderRef,
+    ctxRef,
+    onZoomChange,
+  ]);
 
   return {
     rotationRef,
