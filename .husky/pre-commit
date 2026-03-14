@@ -1,0 +1,16 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+set -e
+
+echo "Running root lint..."
+pnpm -s lint
+
+echo "Running root type-check..."
+pnpm -s type-check
+
+echo "Running demo lint..."
+( cd demo && pnpm run lint )
+
+echo "Running demo type-check..."
+( cd demo && pnpm run type-check )
