@@ -12,7 +12,12 @@ interface SelectProps {
   onChange: (value: string) => void;
 }
 
-export function Select({ label, value, options, onChange }: SelectProps) {
+export function Select({
+  label,
+  value,
+  options,
+  onChange,
+}: SelectProps): React.ReactElement {
   const selectId = useId();
   return (
     <div>
@@ -25,7 +30,9 @@ export function Select({ label, value, options, onChange }: SelectProps) {
       <select
         id={selectId}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+          onChange(e.target.value)
+        }
         style={{
           width: "100%",
           padding: "8px",

@@ -1,4 +1,4 @@
-import { useId } from "react";
+import React, { useId } from "react";
 
 interface NumberInputProps {
   label: string;
@@ -7,6 +7,7 @@ interface NumberInputProps {
   min?: number;
   max?: number;
   step?: number;
+  precision?: number;
 }
 
 export function NumberInput({
@@ -16,8 +17,11 @@ export function NumberInput({
   min,
   max,
   step = 1,
-}: NumberInputProps) {
+  precision,
+}: NumberInputProps): React.ReactElement {
   const id = useId();
+  const displayValue =
+    typeof precision === "number" ? value.toFixed(precision) : String(value);
   return (
     <div style={{ minWidth: 0 }}>
       <label
@@ -32,14 +36,15 @@ export function NumberInput({
         {label}
       </label>
       <input
-        onChange={(e) => {
+        id={id}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
           const parsed = parseFloat(e.target.value);
           if (!Number.isNaN(parsed)) {
             onChange(parsed);
           }
         }}
         type="number"
-        value={value}
+        value={displayValue}
         min={min}
         max={max}
         step={step}

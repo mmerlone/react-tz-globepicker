@@ -12,7 +12,7 @@ export function Toggle({
   checked,
   onChange,
   disabled = false,
-}: ToggleProps) {
+}: ToggleProps): React.ReactElement {
   return (
     <label
       style={{
@@ -26,7 +26,9 @@ export function Toggle({
       <input
         type="checkbox"
         checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          onChange(e.target.checked)
+        }
         disabled={disabled}
       />
       <span>{label}</span>

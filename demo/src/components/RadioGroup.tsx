@@ -19,7 +19,7 @@ export function RadioGroup<T extends string>({
   value,
   options,
   onChange,
-}: RadioGroupProps<T>) {
+}: RadioGroupProps<T>): React.ReactElement {
   return (
     <fieldset
       style={{

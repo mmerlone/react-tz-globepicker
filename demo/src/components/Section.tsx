@@ -14,12 +14,12 @@ export function Section({
   defaultOpen = true,
   isOpen,
   onToggle,
-}: SectionProps) {
+}: SectionProps): React.ReactElement {
   const [internalOpen, setInternalOpen] = React.useState(defaultOpen);
   const isControlled = typeof isOpen === "boolean";
   const open = isControlled ? isOpen : internalOpen;
 
-  const handleToggle = () => {
+  const handleToggle = (): void => {
     if (isControlled) {
       onToggle?.();
       return;
