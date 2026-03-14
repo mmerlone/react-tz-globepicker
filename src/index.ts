@@ -1,3 +1,14 @@
+/**
+ * react-tz-globepicker public entry
+ *
+ * Exposes the main components, hooks, types and small utilities intended for
+ * library consumers. Import from the package root to access the public API.
+ *
+ * Example:
+ * ```ts
+ * import { TzGlobePicker, getTimezoneCenter } from 'react-tz-globepicker'
+ * ```
+ */
 // Main exports
 export { TzGlobePicker } from "./components/TzGlobePicker/TzGlobePicker";
 export { TzGlobePreloader } from "./components/TzGlobePreloader/TzGlobePreloader";
@@ -12,6 +23,7 @@ export type {
   Rotation,
   GeoData,
   RenderFn,
+  GlobePalette,
 } from "./components/TzGlobePicker/types/globe.types";
 
 export { TZ_BOUNDARY_MODES } from "./components/TzGlobePicker/types/globe.types";
@@ -53,3 +65,4 @@ export {
   useGlobeState,
   type GlobeState,
 } from "./components/TzGlobePicker/hooks/useGlobeState";
+export { SpaceBackground, ResetButton } from "./components/TzGlobePicker/ui";

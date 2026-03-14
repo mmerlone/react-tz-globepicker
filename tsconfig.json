@@ -21,9 +21,11 @@
     "noImplicitOverride": true,
     "types": ["node"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "react-tz-globepicker": ["./src/index.ts"],
+      "react-tz-globepicker/*": ["./src/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", "*.config.ts"],
-  "exclude": ["node_modules", "**/dist/**", "**/eslint.config.*", "demo"]
+  "include": ["**/*.ts", "**/*.tsx", "*.config.ts", "types/**/*.d.ts"],
+  "exclude": ["node_modules", "**/dist/**", "**/eslint.config.*"]
 }

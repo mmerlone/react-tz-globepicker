@@ -21,7 +21,10 @@ export default [
       "build/**",
       "coverage/**",
       "tsconfig.tsbuildinfo",
-      "demo/**",
+      "demo/dist/**",
+      "demo/build/**",
+      "demo/coverage/**",
+      "demo/tsconfig.tsbuildinfo",
     ],
   },
 
@@ -52,7 +55,7 @@ export default [
     files: ["**/*.tsx", "**/*.jsx"],
     plugins: {
       react,
-      // "react-hooks": reactHooks, // Remove strict React hooks checking
+      "react-hooks": reactHooks,
     },
     languageOptions: {
       parserOptions: {
@@ -71,7 +74,14 @@ export default [
     },
     rules: {
       ...react.configs.recommended.rules,
-      // "react-hooks": reactHooks,
+      // React Hooks rules
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": [
+        "warn",
+        {
+          additionalHooks: "^use(Globe|Computed|Geo)",
+        },
+      ],
 
       // Strict React rules
       "react/react-in-jsx-scope": "off",
@@ -176,6 +186,29 @@ export default [
     },
   },
 
+  /* Demo package: use project service to resolve types properly */
+  {
+    files: ["demo/**/*.ts", "demo/**/*.tsx"],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+
+  /* Scripts: CLI lint should use the root tsconfig (disable projectService for CLI) */
+  {
+    files: ["scripts/**/*.ts"],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+        tsconfigRootDir: import.meta.dirname,
+        project: ["./tsconfig.json"],
+      },
+    },
+  },
+
   /* Test files - relaxed rules */
   {
     files: [
@@ -216,7 +249,7 @@ export default [
     },
   },
 
-  /* Scripts - Node.js environment */
+  /* Scripts - Node.js environment - relaxed rules for debugging utilities */
   {
     files: ["scripts/**/*"],
     languageOptions: {
@@ -228,6 +261,19 @@ export default [
     rules: {
       "no-console": "off",
       "no-restricted-syntax": "off",
+      "no-unused-vars": "off",
+      curly: "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-floating-promises": "off",
+      "@typescript-eslint/no-misused-promises": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-return": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/explicit-function-return-type": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/prefer-nullish-coalescing": "off",
+      "@typescript-eslint/prefer-optional-chain": "off",
     },
   },
 ];

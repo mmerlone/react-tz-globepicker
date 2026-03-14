@@ -2,6 +2,8 @@
 
 Interactive 3D globe component for timezone selection with React.
 
+https://miro.medium.com/v2/resize:fit:4800/format:webp/0*AuW8APtlc27iI-5D
+
 ## Features
 
 - Interactive 3D globe visualization with drag-to-rotate and zoom
@@ -159,6 +161,27 @@ function App() {
 }
 ```
 
+## Space Background
+
+The package includes a small `SpaceBackground` React component you can pass as the `background` prop to get a starfield-style backdrop.
+
+```tsx
+import { TzGlobePicker, SpaceBackground } from "react-tz-globepicker";
+
+function App() {
+  return (
+    <TzGlobePicker
+      timezone="America/New_York"
+      size={400}
+      onSelect={(tz) => console.log(tz)}
+      showMarkers={true}
+      background={<SpaceBackground />}
+    />
+  );
+}
+```
+
+
 ### Boundary Mode Constants
 
 Use `TZ_BOUNDARY_MODES` to avoid string literals when setting `showTZBoundaries`:
@@ -247,6 +270,16 @@ function App() {
 | Prop   | Type | Default | Description                      |
 | ------ | ---- | ------- | -------------------------------- |
 | (none) | -    | -       | Component uses bundled data only |
+
+## Exported Components
+
+```typescript
+import { TzGlobePicker, SpaceBackground, TzGlobePreloader } from "react-tz-globepicker";
+```
+
+- `TzGlobePicker`: Main interactive globe component
+- `SpaceBackground`: Optional starfield-style background component
+- `TzGlobePreloader`: Preloader component for lazy loading
 
 ## Exported Types
 
