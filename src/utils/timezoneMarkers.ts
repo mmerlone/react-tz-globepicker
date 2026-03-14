@@ -1,5 +1,5 @@
 import { TIMEZONE_COORDINATES } from "./timezoneCoordinates";
-import { CANONICAL_TZ_REGIONS } from "./canonicalTzRegions.generated";
+import { IANA_TZ_DATA } from "../data/iana-data";
 import type { MarkerEntry } from "../components/TzGlobePicker/types/globe.types";
 
 /** Build the list of markers from TIMEZONE_COORDINATES.
@@ -17,6 +17,5 @@ export function buildMarkerList(allowed?: Iterable<string>): MarkerEntry[] {
   return entries;
 }
 
-/** Subset of markers filtered to only canonical timezone regions (~64 entries) */
-export const CANONICAL_MARKERS: MarkerEntry[] =
-  buildMarkerList(CANONICAL_TZ_REGIONS);
+/** Subset of markers filtered to only IANA timezone regions (~419 entries) */
+export const CANONICAL_MARKERS: MarkerEntry[] = buildMarkerList(IANA_TZ_DATA);

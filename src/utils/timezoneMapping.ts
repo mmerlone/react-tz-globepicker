@@ -1,33 +1,23 @@
 /**
  * Timezone Mapping Utilities
  *
- * Maps any IANA timezone identifier to one of the 64 canonical timezone regions
+ * Maps any IANA timezone identifier to one of the 419 canonical timezone regions
  * used by the TzGlobePicker component's boundary polygons, and provides UTC offset
  * computation for the simplified band rendering mode.
  *
- * The 64 canonical regions come from the timezone-boundary-builder "now" variant,
+ * The 419 canonical regions come from the timezone-boundary-builder "now" variant,
  * which groups all IANA timezones by their current observance rules.
  *
  * @module timezoneMapping
  * @see {@link https://github.com/evansiroky/timezone-boundary-builder}
  */
 
-import { CANONICAL_TZ_REGIONS } from "./canonicalTzRegions.generated";
+import { IANA_TZ_DATA } from "../data/iana-data";
 
 /**
- * Get the current UTC offset in minutes for a given IANA timezone.
- * Uses the Intl API to parse the UTC offset string.
- *
- * @param timezone - IANA timezone identifier (e.g. "America/New_York")
- * @returns UTC offset in minutes (e.g. -300 for EST, 330 for IST)
- *
- * @example
- * ```typescript
- * getUtcOffsetMinutes('America/New_York') // -300 (UTC-5) or -240 (UTC-4 during DST)
- * getUtcOffsetMinutes('Asia/Kolkata')     // 330 (UTC+5:30)
- * ```
+ * Internal implementation of UTC offset calculation without caching.
  */
-export function getUtcOffsetMinutes(timezone: string): number {
+function getUtcOffsetMinutesUncached(timezone: string): number {
   try {
     const formatter = new Intl.DateTimeFormat("en-US", {
       timeZone: timezone,
@@ -50,6 +40,43 @@ export function getUtcOffsetMinutes(timezone: string): number {
   } catch {
     return 0;
   }
+}
+
+// Cache for UTC offset calculations - avoids repeated Intl API calls
+const offsetCache = new Map<string, number>();
+
+// Pre-computed set for O(1) lookup of canonical timezones
+const canonicalTzSet = new Set<string>(IANA_TZ_DATA);
+
+// Pre-computed offsets for all IANA timezones to avoid O(n²) in mapToCanonicalTz
+const canonicalOffsets: Map<string, number> = new Map();
+for (const tz of IANA_TZ_DATA) {
+  const offset = getUtcOffsetMinutesUncached(tz);
+  canonicalOffsets.set(tz, offset);
+}
+
+/**
+ * Get the current UTC offset in minutes for a given IANA timezone.
+ * Uses the Intl API to parse the UTC offset string.
+ *
+ * @param timezone - IANA timezone identifier (e.g. "America/New_York")
+ * @returns UTC offset in minutes (e.g. -300 for EST, 330 for IST)
+ *
+ * @example
+ * ```typescript
+ * getUtcOffsetMinutes('America/New_York') // -300 (UTC-5) or -240 (UTC-4 during DST)
+ * getUtcOffsetMinutes('Asia/Kolkata')     // 330 (UTC+5:30)
+ * ```
+ */
+export function getUtcOffsetMinutes(timezone: string): number {
+  // Check cache first
+  if (offsetCache.has(timezone)) {
+    return offsetCache.get(timezone)!;
+  }
+
+  const offset = getUtcOffsetMinutesUncached(timezone);
+  offsetCache.set(timezone, offset);
+  return offset;
 }
 
 /**
@@ -92,20 +119,20 @@ export function getUtcOffsetHour(timezone: string): number {
  * ```
  */
 export function mapToCanonicalTz(timezone: string): string {
-  // Direct match — skip the offset computation
-  if (CANONICAL_TZ_REGIONS.some((r) => r === timezone)) {
+  // O(1) lookup using Set instead of O(n) array.some()
+  if (canonicalTzSet.has(timezone)) {
     return timezone;
   }
 
   const targetOffset = getUtcOffsetMinutes(timezone);
 
   // Find the canonical region with the closest UTC offset
-  const firstRegion = CANONICAL_TZ_REGIONS[0];
-  let bestMatch: string = firstRegion;
+  // Using pre-computed offsets for O(1) lookup per iteration
+  let bestMatch: string = IANA_TZ_DATA[0];
   let bestDiff = Infinity;
 
-  for (const canonical of CANONICAL_TZ_REGIONS) {
-    const canonicalOffset = getUtcOffsetMinutes(canonical);
+  for (const canonical of IANA_TZ_DATA) {
+    const canonicalOffset = canonicalOffsets.get(canonical)!;
     const diff = Math.abs(canonicalOffset - targetOffset);
     if (diff < bestDiff) {
       bestDiff = diff;

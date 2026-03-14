@@ -6,8 +6,13 @@
  * the correct position for a given timezone.
  *
  * Coordinates represent the approximate center of each timezone's primary region.
- * Not every IANA timezone has an entry — the globe will fall back to [0, 0] for
- * unknown zones.
+ * Not every IANA timezone has an entry — the globe will fall back to [0, 0]
+ * for unknown zones.
+ *
+ * Precision & semantics:
+ * - Coordinates are approximate centroids used for camera/flyTo behavior and
+ *   should not be relied on for accurate geolocation or boundary placement.
+ * - Units are degrees; latitude first, longitude second for the `LatLng` type.
  *
  * @module timezoneCoordinates
  */
