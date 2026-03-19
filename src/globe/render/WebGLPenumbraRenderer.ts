@@ -1,5 +1,5 @@
 import type { GlobePalette } from "../types/globe.types";
-import { buildLogger } from "../../../logger/client";
+import { buildLogger } from "../../logger/client";
 import hexRgb from "hex-rgb";
 
 const logger = buildLogger("WebGLPenumbraRenderer");
@@ -137,7 +137,11 @@ export function createWebGLRenderer(
 
   // Create program
   const program = webglContext.createProgram();
-  if (!program) return null;
+  if (!program) {
+    webglContext.deleteShader(vertexShader);
+    webglContext.deleteShader(fragmentShader);
+    return null;
+  }
 
   webglContext.attachShader(program, vertexShader);
   webglContext.attachShader(program, fragmentShader);
@@ -148,12 +152,20 @@ export function createWebGLRenderer(
       { error: webglContext.getProgramInfoLog(program) },
       "Unable to initialize shader program",
     );
+    webglContext.deleteShader(vertexShader);
+    webglContext.deleteShader(fragmentShader);
+    webglContext.deleteProgram(program);
     return null;
   }
 
   // Create position buffer for full-screen quad
   const positionBuffer = webglContext.createBuffer();
-  if (!positionBuffer) return null;
+  if (!positionBuffer) {
+    webglContext.deleteShader(vertexShader);
+    webglContext.deleteShader(fragmentShader);
+    webglContext.deleteProgram(program);
+    return null;
+  }
 
   webglContext.bindBuffer(webglContext.ARRAY_BUFFER, positionBuffer);
   webglContext.bufferData(
@@ -162,14 +174,23 @@ export function createWebGLRenderer(
     webglContext.STATIC_DRAW,
   );
 
-  // Get uniform locations
+  const resolution = webglContext.getUniformLocation(program, "u_resolution");
+  const radius = webglContext.getUniformLocation(program, "u_radius");
+  const sunDirection = webglContext.getUniformLocation(
+    program,
+    "u_sunDirection",
+  );
+  const dayColor = webglContext.getUniformLocation(program, "u_dayColor");
+  const nightColor = webglContext.getUniformLocation(program, "u_nightColor");
+  const opacity = webglContext.getUniformLocation(program, "u_opacity");
+
   const uniformLocations = {
-    resolution: webglContext.getUniformLocation(program, "u_resolution")!,
-    radius: webglContext.getUniformLocation(program, "u_radius")!,
-    sunDirection: webglContext.getUniformLocation(program, "u_sunDirection")!,
-    dayColor: webglContext.getUniformLocation(program, "u_dayColor")!,
-    nightColor: webglContext.getUniformLocation(program, "u_nightColor")!,
-    opacity: webglContext.getUniformLocation(program, "u_opacity")!,
+    resolution,
+    radius,
+    sunDirection,
+    dayColor,
+    nightColor,
+    opacity,
   };
 
   return {

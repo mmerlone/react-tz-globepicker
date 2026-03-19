@@ -1,11 +1,11 @@
-import { useMemo, useRef, useEffect, isValidElement } from "react";
+import { useMemo, useRef, isValidElement } from "react";
 import type { GeoProjection } from "d3-geo";
 
-import { buildLogger } from "../../../logger/client";
-import { CANONICAL_MARKERS } from "../../../utils/timezoneMarkers";
+import { buildLogger } from "../../logger/client";
+import { CANONICAL_MARKERS } from "../../utils/timezoneMarkers";
 
-import { useGeoData } from "../data";
-import { useGlobeInteractions } from "../interactions";
+import { useGeoData } from "./useGeoData";
+import { useGlobeInteractions } from "../interaction";
 import { useGlobeState, useComputedGlobeData, useGlobeSystem } from ".";
 
 import {
@@ -17,7 +17,7 @@ import {
   TZ_BOUNDARY_MODES,
 } from "../types/globe.types";
 import { COLORS, MIN_ZOOM, MAX_ZOOM } from "../constants/globe.constants";
-import type { WebGLRendererProgram } from "../renderers/WebGLPenumbraRenderer";
+import type { WebGLRendererProgram } from "../render/WebGLPenumbraRenderer";
 
 export interface GlobeControllerState {
   size: number;
@@ -62,6 +62,7 @@ export function useGlobeController(
     showTZBoundaries = TZ_BOUNDARY_MODES.NONE,
     background,
     showCountryBorders = false,
+    showGeographic = false,
     markers,
     zoomMarkers = false,
     minZoom = MIN_ZOOM,
@@ -70,7 +71,7 @@ export function useGlobeController(
     zoom: externalZoom,
     onZoomChange,
     colors: colorsProp,
-    flyToTrigger,
+    simulatedDate,
   } = props;
 
   // ── Core State & Refs ─────────────────────────────────────────────
@@ -82,7 +83,15 @@ export function useGlobeController(
   const renderRef = useRef<RenderFn>(() => {});
 
   // ── Data Loading & Resolution ────────────────────────────────────────
-  const { geoData, isLoading: isLoadingGeoData, error } = useGeoData();
+  // Pass boundary mode to load only required data files
+  const {
+    geoData,
+    isLoading: isLoadingGeoData,
+    error,
+  } = useGeoData({
+    boundaryMode: showTZBoundaries,
+    timezone: tzProp ?? "UTC",
+  });
   const tz = tzProp ?? "UTC";
 
   // ── Color Configuration ─────────────────────────────────────────────
@@ -104,14 +113,6 @@ export function useGlobeController(
     externalZoom,
     onZoomChange,
   });
-
-  // ── FlyTo Trigger ────────────────────────────────────────────────────────
-  // Trigger flyTo when flyToTrigger prop changes
-  useEffect(() => {
-    if (flyToTrigger && globe.flyTo && tz) {
-      globe.flyTo(tz, true);
-    }
-  }, [flyToTrigger, globe.flyTo, tz]);
 
   // ── Marker Configuration Logic ─────────────────────────────────────────
   // Determine whether a non-empty `markers` prop was provided. An empty
@@ -165,11 +166,12 @@ export function useGlobeController(
     renderRef,
     cachedNightRef,
     size,
-    isLoadingGeoData,
+    hasGeoData: geoData !== null,
     globe,
     geoData,
     colors,
     showCountryBorders,
+    showGeographic,
     timezone: tz,
     showTZBoundaries,
     highlightedData,
@@ -178,6 +180,7 @@ export function useGlobeController(
     effectiveShowMarkers,
     zoomMarkers,
     logger,
+    simulatedDate,
   });
 
   // ── Canvas Background Configuration ───────────────────────────────────────

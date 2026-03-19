@@ -1,9 +1,14 @@
 "use client";
 
 import React, { isValidElement, useRef } from "react";
-import type { TzGlobePickerProps } from "./types/globe.types";
-import { GlobeTooltip, ResetButton, GlobeCanvas, GlobeFallback } from "./ui";
-import { useGlobeController } from "./hooks";
+import type { TzGlobePickerProps } from "./globe/types/globe.types";
+import {
+  GlobeTooltip,
+  ResetButton,
+  GlobeCanvas,
+  GlobeFallback,
+} from "./globe/ui";
+import { useGlobeController } from "./globe/hooks";
 
 /**
  * Interactive 3D globe component for timezone selection with advanced visualization capabilities.
@@ -25,7 +30,7 @@ import { useGlobeController } from "./hooks";
  *   onSelect={handleTimezoneSelect}
  *   showMarkers
  *   showTooltips
- *   showTZBoundaries="iso8601"
+ *   showTZBoundaries="etc-gmt"
  *   showCountryBorders
  *   zoomMarkers
  *   size={400}
@@ -34,7 +39,7 @@ import { useGlobeController } from "./hooks";
  *     land: '#0074d9',
  *     selectedMarker: '#ff4136'
  *   }}
- *   sx={{ border: '2px solid #ddd', borderRadius: '8px' }}
+ *   style={{ border: '2px solid #ddd', borderRadius: '8px' }}
  * />
  * ```
  *
@@ -47,7 +52,7 @@ import { useGlobeController } from "./hooks";
  * - Click-and-drag rotation with inertia physics
  * - Scroll wheel zoom with configurable limits
  * - Timezone marker selection with hover tooltips
- * - Multiple boundary visualization modes (nautic bands, iso8601 shapes, iana country-level)
+ * - Multiple boundary visualization modes (nautic bands, etc-gmt shapes, iana country-level)
  * - Custom color theming and styling
  *
  * **Data Sources:**
@@ -86,8 +91,8 @@ import { useGlobeController } from "./hooks";
  * @returns A canvas-based interactive globe component wrapped in a div container
  *
  * @see {@link https://github.com/mmerlone/react-tz-globepicker} for full documentation
- * @see {@link ./types/globe.types.ts} for complete type definitions
- * @see {@link ./constants/globe.constants.ts} for default values and configuration
+ * @see {@link ./globe/types/globe.types.ts} for complete type definitions
+ * @see {@link ./globe/constants/globe.constants.ts} for default values and configuration
  */
 export function TzGlobePicker(props: TzGlobePickerProps): React.ReactElement {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -106,8 +111,7 @@ export function TzGlobePicker(props: TzGlobePickerProps): React.ReactElement {
     showTooltips,
   } = useGlobeController(props);
 
-
-  const { background, style: styleProp, className } = props;
+  const { background, style: styleProp, className, simulatedDate } = props;
 
   // ── Styling Configuration ───────────────────────────────────────────────
   const baseStyle: React.CSSProperties = {
@@ -122,9 +126,7 @@ export function TzGlobePicker(props: TzGlobePickerProps): React.ReactElement {
 
   // If background is a string, apply as CSS background property
   const backgroundStyle: React.CSSProperties =
-    typeof background === "string"
-      ? { background: background }
-      : {};
+    typeof background === "string" ? { background: background } : {};
 
   const outerStyle: React.CSSProperties = {
     ...baseStyle,
@@ -178,6 +180,7 @@ export function TzGlobePicker(props: TzGlobePickerProps): React.ReactElement {
                 timezone={tooltip.timezone}
                 position={tooltip.position}
                 open={tooltip.timezone !== null}
+                simulatedDate={simulatedDate}
               />
             )}
           </>

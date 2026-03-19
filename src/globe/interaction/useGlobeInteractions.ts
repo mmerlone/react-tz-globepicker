@@ -5,10 +5,10 @@ import type { GeoProjection } from "d3-geo";
 import { select } from "d3-selection";
 import { drag, type D3DragEvent } from "d3-drag";
 import type { MarkerEntry, GeoData } from "../types/globe.types";
-import { hitTestMarker } from "../renderers/MarkerRenderer";
+import { hitTestMarker } from "../render/MarkerRenderer";
 import { HIT_RADIUS } from "../constants/globe.constants";
 import type { GlobeState } from "../hooks/useGlobeState";
-import { buildLogger } from "../../../logger/client";
+import { buildLogger } from "../../logger/client";
 
 const logger = buildLogger("globe-interactions");
 

@@ -45,19 +45,21 @@ export function renderAtmosphere({
   // Save original scale before modification
   const originalScale = projection.scale();
 
-  // Expand scale so the stroke extends beyond the globe edge
-  projection.scale(originalScale + ATMOSPHERE_THICKNESS / 2);
+  try {
+    // Expand scale so the stroke extends beyond the globe edge
+    projection.scale(originalScale + ATMOSPHERE_THICKNESS / 2);
 
-  // Create path generator AFTER scale is set
-  const pathGen = geoPath(projection, ctx);
+    // Create path generator AFTER scale is set
+    const pathGen = geoPath(projection, ctx);
 
-  // Draw outer rim using sphere geometry
-  ctx.beginPath();
-  pathGen({ type: "Sphere" } as GeoPermissibleObjects);
-  ctx.strokeStyle = getColor(colors, "rim");
-  ctx.lineWidth = ATMOSPHERE_THICKNESS;
-  ctx.stroke();
-
-  // Restore original projection scale
-  projection.scale(originalScale);
+    // Draw outer rim using sphere geometry
+    ctx.beginPath();
+    pathGen({ type: "Sphere" } as GeoPermissibleObjects);
+    ctx.strokeStyle = getColor(colors, "rim");
+    ctx.lineWidth = ATMOSPHERE_THICKNESS;
+    ctx.stroke();
+  } finally {
+    // Restore original projection scale
+    projection.scale(originalScale);
+  }
 }

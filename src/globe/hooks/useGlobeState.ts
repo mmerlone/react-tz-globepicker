@@ -3,7 +3,7 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import type { GeoProjection } from "d3-geo";
 import { normalizeRotation, shortestDelta } from "../utils/globeUtils";
-import { getTimezoneCenter } from "../../../utils/timezoneCoordinates";
+import { getTimezoneCenter } from "../../utils/timezoneCoordinates";
 import {
   TILT,
   DRAG_SENSITIVITY,
@@ -186,7 +186,7 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
       const dTilt = targetRotation[2] - startRotation[2];
 
       const startZoom = zoomRef.current;
-      const targetZoom = resetZoom ? 1 : startZoom;
+      const targetZoom = resetZoom ? initialZoom : startZoom;
       const dZoom = targetZoom - startZoom;
       const baseScale = baseScaleRef.current;
 
@@ -245,7 +245,15 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
 
       flyToFrameRef.current = requestAnimationFrame(animate);
     },
-    [cancelAnimations, projectionRef, ctxRef, renderRef, logger, onZoomChange],
+    [
+      cancelAnimations,
+      projectionRef,
+      ctxRef,
+      renderRef,
+      logger,
+      initialZoom,
+      onZoomChange,
+    ],
   );
 
   // Reset view to timezone center
@@ -325,6 +333,11 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
       ctx: CanvasRenderingContext2D,
       renderFn: RenderFn,
     ): void => {
+      // Cancel any existing inertia animation
+      if (inertiaFrameRef.current) {
+        cancelAnimationFrame(inertiaFrameRef.current);
+        inertiaFrameRef.current = 0;
+      }
       const animate = (): void => {
         const [vx, vy] = velocityRef.current;
 

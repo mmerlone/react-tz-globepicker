@@ -10,12 +10,13 @@ import {
   renderBoundaries,
   renderMarkers,
   renderAtmosphere,
-} from "../renderers";
+} from "../render";
+
 import {
   createWebGLRenderer,
   disposeWebGLRenderer,
   type WebGLRendererProgram,
-} from "../renderers/WebGLPenumbraRenderer";
+} from "../render/WebGLPenumbraRenderer";
 import {
   type RenderFn,
   type MarkerEntry,
@@ -25,9 +26,9 @@ import {
   type TzBoundaryMode,
   TZ_BOUNDARY_MODES,
 } from "../types/globe.types";
-import type { HighlightedData } from "../renderers/BoundaryRenderer";
+import type { HighlightedData } from "../render/BoundaryRenderer";
 import type { GlobeState } from "./useGlobeState";
-import { type buildLogger } from "../../../logger/client";
+import { type buildLogger } from "../../logger/client";
 
 interface UseGlobeSystemOptions {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -38,13 +39,14 @@ interface UseGlobeSystemOptions {
   cachedNightRef: React.MutableRefObject<CachedNight>;
 
   size: number;
-  isLoadingGeoData: boolean;
+  hasGeoData: boolean;
 
   globe: GlobeState;
 
   geoData: GeoData | null;
   colors: GlobePalette;
   showCountryBorders: boolean;
+  showGeographic: boolean;
   timezone: string | null;
   showTZBoundaries: TzBoundaryMode;
   highlightedData: HighlightedData | null;
@@ -53,6 +55,7 @@ interface UseGlobeSystemOptions {
   effectiveShowMarkers: boolean;
   zoomMarkers: boolean;
   logger: ReturnType<typeof buildLogger>;
+  simulatedDate?: Date;
 }
 
 /**
@@ -80,11 +83,12 @@ export function useGlobeSystem({
   renderRef,
   cachedNightRef,
   size,
-  isLoadingGeoData,
+  hasGeoData,
   globe,
   geoData,
   colors,
   showCountryBorders,
+  showGeographic,
   timezone,
   showTZBoundaries,
   highlightedData,
@@ -93,21 +97,14 @@ export function useGlobeSystem({
   effectiveShowMarkers,
   zoomMarkers,
   logger,
+  simulatedDate,
 }: UseGlobeSystemOptions): void {
   const { zoomRef, baseScaleRef } = globe;
 
   // ── Core Render Function ───────────────────────────────────────────────
   const render = useCallback(
     (projection: GeoProjection, ctx: CanvasRenderingContext2D): void => {
-      if (!geoData) {
-        logger.warn({}, "No geoData available for rendering");
-        return;
-      }
-
-      logger.info(
-        { hasCountries: Boolean(geoData.countries) },
-        "Rendering globe",
-      );
+      if (!geoData) return;
 
       const dpr = typeof window !== "undefined" ? window.devicePixelRatio : 1;
 
@@ -117,7 +114,7 @@ export function useGlobeSystem({
       ctx.save();
       ctx.scale(dpr, dpr);
 
-      // 1. Base layers (ocean, land, graticule, night shadow, country borders)
+      // 1. Base layers (ocean, land, graticule, night shadow, country borders, geographic lines)
       renderBaseLayers({
         projection,
         ctx,
@@ -126,7 +123,9 @@ export function useGlobeSystem({
         colors,
         cachedNightRef,
         showCountryBorders,
+        showGeographic,
         webglRenderer: webglRendererRef,
+        simulatedDate,
       });
 
       // 2. Timezone boundaries
@@ -144,11 +143,15 @@ export function useGlobeSystem({
       // 3. Markers
 
       if (effectiveShowMarkers) {
+        // Prefer build-time mapping when available to avoid runtime Intl calls.
+        const selectedEtc: string | null =
+          geoData?.etcgmtIanaToOffset?.[timezone as string] ?? null;
         renderMarkers({
           projection,
           ctx,
           activeMarkers,
           selectedTimezone: timezone ?? null,
+          selectedEtcOffsetKey: selectedEtc,
           hoveredTimezone: tooltipTimezone,
           colors,
           size,
@@ -170,6 +173,7 @@ export function useGlobeSystem({
       geoData,
       colors,
       showCountryBorders,
+      showGeographic,
       timezone,
       showTZBoundaries,
       highlightedData,
@@ -180,6 +184,7 @@ export function useGlobeSystem({
       zoomRef,
       zoomMarkers,
       baseScaleRef,
+      simulatedDate,
     ],
   );
 
@@ -253,7 +258,7 @@ export function useGlobeSystem({
         webglRendererRef.current = null;
       }
     };
-  }, [size, isLoadingGeoData]);
+  }, [size, hasGeoData]);
 
   // ── Initial Render Trigger ───────────────────────────────────────────────
   useEffect(() => {
@@ -284,6 +289,22 @@ export function useGlobeSystem({
       renderRef.current(projectionRef.current, ctxRef.current);
     }
   }, [showCountryBorders]);
+
+  // Re-render when geographic lines visibility changes so the lines
+  // are drawn/removed immediately when toggled.
+  useEffect(() => {
+    if (geoData && projectionRef.current && ctxRef.current) {
+      renderRef.current(projectionRef.current, ctxRef.current);
+    }
+  }, [showGeographic]);
+
+  // Re-render when simulatedDate changes so the penumbra position
+  // immediately reflects the new sun position (solstices, time changes, etc.).
+  useEffect(() => {
+    if (geoData && projectionRef.current && ctxRef.current) {
+      renderRef.current(projectionRef.current, ctxRef.current);
+    }
+  }, [simulatedDate]);
 
   // ── Data Change Trigger ─────────────────────────────────────────────────
   useEffect(() => {

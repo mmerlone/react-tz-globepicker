@@ -1,4 +1,5 @@
 import { geoGraticule } from "d3-geo";
+import type { Feature, LineString } from "geojson";
 
 /**
  * Module: globe.constants
@@ -10,7 +11,7 @@ import { geoGraticule } from "d3-geo";
  */
 
 /** Globe axial tilt in degrees (Earth's obliquity ≈ 23.44°) */
-export const TILT = -23.44;
+export const TILT = 23.44;
 
 /** Sensitivity factor for drag-to-rotate (degrees per pixel) */
 export const DRAG_SENSITIVITY = 0.4;
@@ -56,10 +57,11 @@ export const FLY_DURATION = 600;
 
 /** Colors for globe rendering */
 export const COLORS = {
-  ocean: "#22476eff",
-  land: "#91ff9a9a",
+  ocean: "#94c8ff",
+  land: "#21912a",
   border: "#4d8950ff",
   graticule: "rgba(255,255,255,0.28)",
+  geographic: "rgba(245, 6, 6, 0.15)",
   rim: "rgba(255,255,255,0.25)",
   defaultMarker: "#e0e1dd",
   defaultMarkerStroke: "#1b263b",
@@ -87,4 +89,58 @@ export const LINE_WIDTHS = {
   markerSelected: 1.5,
   highlight: 1,
   rim: 1,
+  geographic: 1.7,
 } as const;
+
+/**
+ * Geographic lines data for globe rendering.
+ * Includes equator, tropical circles (Cancer/Capricorn), and polar circles (Arctic/Antarctic).
+ * Generated programmatically.
+ */
+export const GEOGRAPHIC_DATA: Feature<LineString>[] = [
+  // Equator (0° latitude)
+  {
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "LineString",
+      coordinates: Array.from({ length: 361 }, (_, i) => [i - 180, 0]),
+    },
+  },
+  // Tropic of Cancer (23.44° N - Earth's axial tilt)
+  {
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "LineString",
+      coordinates: Array.from({ length: 361 }, (_, i) => [i - 180, 23.44]),
+    },
+  },
+  // Tropic of Capricorn (23.44° S)
+  {
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "LineString",
+      coordinates: Array.from({ length: 361 }, (_, i) => [i - 180, -23.44]),
+    },
+  },
+  // Arctic Circle (66.56° N)
+  {
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "LineString",
+      coordinates: Array.from({ length: 361 }, (_, i) => [i - 180, 66.56]),
+    },
+  },
+  // Antarctic Circle (66.56° S)
+  {
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "LineString",
+      coordinates: Array.from({ length: 361 }, (_, i) => [i - 180, -66.56]),
+    },
+  },
+];

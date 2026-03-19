@@ -7,6 +7,7 @@ import {
 } from "d3-geo";
 import {
   GRATICULE_DATA,
+  GEOGRAPHIC_DATA,
   TWILIGHT_OPACITY,
   NIGHT_COLOR_RGB,
   LINE_WIDTHS,
@@ -40,8 +41,12 @@ interface BaseLayersRendererProps {
   cachedNightRef: React.MutableRefObject<CachedNight>;
   /** Whether to render country borders on the globe surface */
   showCountryBorders: boolean;
+  /** Whether to render geographic lines (equator, tropics, polar circles, IDL) */
+  showGeographic: boolean;
   /** WebGL renderer instance for penumbra */
   webglRenderer: React.MutableRefObject<WebGLRendererProgram | null>;
+  /** Optional simulated date for sun position calculation */
+  simulatedDate?: Date;
 }
 
 /**
@@ -65,16 +70,7 @@ interface BaseLayersRendererProps {
  * @param props - Rendering configuration containing all necessary data and settings
  *
  * @example
- * ```typescript
- * renderBaseLayers({
- *   projection: orthographicProjection,
- *   ctx: canvasContext,
- *   geoData: timezoneData,
- *   colors: customPalette,
- *   cachedNightRef: nightRef,
- *   showCountryBorders: true
- * });
- * ```
+ *
  */
 export function renderBaseLayers({
   projection,
@@ -84,7 +80,9 @@ export function renderBaseLayers({
   colors,
   cachedNightRef,
   showCountryBorders,
+  showGeographic,
   webglRenderer,
+  simulatedDate,
 }: BaseLayersRendererProps): void {
   const pathGen = geoPath(projection, ctx);
 
@@ -113,16 +111,19 @@ export function renderBaseLayers({
 
   if (SHOW_PENUMBRA) {
     // 4. Penumbra (Atmospheric Night Shadow) - WebGL Lambertian lighting
-    const nowMinute = Math.floor(Date.now() / 60_000);
+    // When using simulated date, recalculate every frame (no caching)
+    const nowMinute = simulatedDate ? -1 : Math.floor(Date.now() / 60_000);
 
     // Update cached sun direction if minute changed (performance optimization)
-    if (cachedNightRef.current.minute !== nowMinute) {
-      const subsolarPoint = getSubsolarPoint(); // [lng, lat]
+    // Skip cache when simulatedDate is provided
+    if (simulatedDate || cachedNightRef.current.minute !== nowMinute) {
+      const subsolarPoint = getSubsolarPoint(simulatedDate); // [lng, lat]
       cachedNightRef.current = { minute: nowMinute, center: subsolarPoint };
     }
 
     // Ensure center is defined (fallback for edge cases)
-    const sunCenter = cachedNightRef.current.center ?? getSubsolarPoint();
+    const sunCenter =
+      cachedNightRef.current.center ?? getSubsolarPoint(simulatedDate);
 
     // Render penumbra using WebGL if available, otherwise fallback to Canvas
     if (webglRenderer.current) {
@@ -167,7 +168,7 @@ export function renderBaseLayers({
       ctx.drawImage(renderer.canvas, 0, 0, size, size);
     } else {
       // Fallback: Simple Canvas hemisphere (no gradient for performance)
-      const [sunLng, sunLat] = getSubsolarPoint();
+      const [sunLng, sunLat] = getSubsolarPoint(simulatedDate);
       const nightLng = normalizeLongitude(sunLng + 180);
       const nightCenter: [number, number] = [nightLng, -sunLat];
 
@@ -193,5 +194,32 @@ export function renderBaseLayers({
     ctx.strokeStyle = getColor(colors, "border");
     ctx.lineWidth = LINE_WIDTHS.graticule;
     ctx.stroke();
+  }
+
+  // 7. Geographic Lines (Equator, Tropics, Polar Circles, IDL) - Optional feature
+  if (showGeographic) {
+    // Draw programmatic geographic lines (equator, tropics, polar circles)
+    for (const feature of GEOGRAPHIC_DATA) {
+      ctx.beginPath();
+      pathGen(feature as GeoPermissibleObjects);
+      ctx.strokeStyle = getColor(colors, "geographic");
+      ctx.lineWidth = LINE_WIDTHS.geographic;
+      ctx.stroke();
+    }
+
+    // Prefer Natural Earth's IDL artifact when it is available.
+    if (geoData.geographic_idl?.features?.length) {
+      for (const f of geoData.geographic_idl.features) {
+        try {
+          ctx.beginPath();
+          pathGen(f as GeoPermissibleObjects);
+          ctx.strokeStyle = getColor(colors, "geographic");
+          ctx.lineWidth = LINE_WIDTHS.geographic;
+          ctx.stroke();
+        } catch {
+          // Non-fatal: continue rendering other features
+        }
+      }
+    }
   }
 }

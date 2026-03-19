@@ -1,5 +1,5 @@
 import { geoDistance, type GeoProjection } from "d3-geo";
-import { getUtcOffsetMinutes } from "../../../utils/timezoneMapping";
+import { getUtcOffsetMinutes } from "../../utils/timezoneMapping";
 import { MAX_LATITUDE, TILT, COLORS } from "../constants/globe.constants";
 import type { Coordinate, Rotation, GlobePalette } from "../types/globe.types";
 
@@ -100,8 +100,9 @@ export function isPointVisible(
 
 /**
  * Compute the subsolar point (latitude/longitude where the sun is directly overhead)
- * for the current moment in time.
+ * for the current moment in time or a simulated date.
  *
+ * @param simulatedDate - Optional date to simulate. Uses current time when undefined.
  * @returns Coordinate of subsolar point [longitude, latitude] following D3/GeoJSON convention
  *
  * @example
@@ -109,15 +110,19 @@ export function isPointVisible(
  * // Returns current sun position
  * const subsolar = getSubsolarPoint();
  * console.log(`Sun is at ${subsolar[0]}° longitude, ${subsolar[1]}° latitude`);
+ * 
+ * // Returns sun position at summer solstice 2024
+ * const summerSolstice = new Date('2024-06-21T12:00:00Z');
+ * const subsolar = getSubsolarPoint(summerSolstice);
  * ```
  */
-export function getSubsolarPoint(): Coordinate {
-  const now = new Date();
+export function getSubsolarPoint(simulatedDate?: Date): Coordinate {
+  const now = simulatedDate ?? new Date();
   const dayOfYear = Math.floor(
     (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86_400_000,
   );
   const declination =
-    TILT * Math.cos((2 * Math.PI * (dayOfYear + 10)) / 365.25);
+    TILT * Math.sin((2 * Math.PI * (dayOfYear - 81)) / 365.242);
   const utcHours =
     now.getUTCHours() + now.getUTCMinutes() / 60 + now.getUTCSeconds() / 3600;
   const solarLng = -((utcHours - 12) * 15);

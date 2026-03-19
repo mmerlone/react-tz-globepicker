@@ -6,7 +6,7 @@ import type {
   Coordinate,
   GlobePalette,
 } from "../types/globe.types";
-import { buildLogger } from "../../../logger/client";
+import { buildLogger } from "../../logger/client";
 
 const logger = buildLogger("marker-renderer");
 
@@ -26,6 +26,8 @@ interface MarkerRendererProps {
   activeMarkers: MarkerEntry[];
   /** Currently selected timezone identifier for emphasis */
   selectedTimezone: string | null;
+  /** Optional selected ETC/GMT offset key for offset-based highlighting */
+  selectedEtcOffsetKey?: string | null;
   /** Currently hovered timezone identifier for highlighting */
   hoveredTimezone: string | null;
   /** Color configuration for different marker states */
@@ -80,6 +82,7 @@ export function renderMarkers({
   ctx,
   activeMarkers,
   selectedTimezone,
+  selectedEtcOffsetKey,
   hoveredTimezone,
   colors,
   size,
@@ -93,8 +96,15 @@ export function renderMarkers({
     const hoveredRadius = markerRadius * 2;
 
     // Always render markers - the consumer decides whether to call this function
-    for (const { tz: markerTz, coords } of activeMarkers) {
-      const isSelected = markerTz === selectedTimezone;
+    for (const { tz: markerTz, coords, etcgmtOffsetKey } of activeMarkers) {
+      // Marker is selected if:
+      // 1. It matches the selected IANA timezone (exact match), OR
+      // 2. No specific timezone is selected AND it matches the selected ETC/GMT offset key
+      const isSelected =
+        markerTz === selectedTimezone ||
+        (!selectedTimezone &&
+          selectedEtcOffsetKey &&
+          etcgmtOffsetKey === selectedEtcOffsetKey);
       const [lat, lng] = coords;
       const geoPoint: Coordinate = [lng, lat];
 

@@ -11,7 +11,6 @@
  */
 import type { FeatureCollection, Feature } from "geojson";
 import type { GeoProjection } from "d3-geo";
-import type { Topology } from "topojson-specification";
 import type { CSSProperties, ReactElement } from "react";
 
 /** Coordinate tuple [longitude, latitude] used throughout the component (D3/GeoJSON convention) */
@@ -23,24 +22,44 @@ export type LatLng = [number, number];
 /** Rotation tuple [longitude, latitude, tilt] */
 export type Rotation = [number, number, number];
 
+/** Properties found in ETC/GMT timezone features */
+export interface EtcGmtFeatureProperties {
+  tzid: string;
+  name: string;
+  source: string;
+}
+
+/** Generic timezone feature properties */
+export interface TzFeatureProperties {
+  tzid?: string;
+  TZID?: string;
+  timezone?: string;
+  name?: string;
+  ADMIN?: string;
+  [key: string]: unknown;
+}
+
+/** Record of ETC/GMT offset geometries keyed by offset string (e.g., "UTC-10:00") */
+export type EtcGmtOffsetGeometries = Record<string, FeatureCollection>;
+
 /** Render function signature for canvas render callbacks */
 export type RenderFn = (
   projection: GeoProjection,
   ctx: CanvasRenderingContext2D,
 ) => void;
 
-/** Geographic data loaded from unified source (globe-data.json) */
+/** Geographic data assembled from split runtime artifacts. */
 export interface GeoData {
-  /** IANA timezone boundaries (accurate land boundaries from timezone-boundary-builder) */
-  ianaTimezones: FeatureCollection;
-  /** ISO8601 timezone polygons (includes ocean areas from Natural Earth) */
-  iso8601Timezones: FeatureCollection;
-  /** Legacy property - now points to ianaTimezones for backward compatibility */
-  timezones: FeatureCollection;
+  /** IANA timezone boundaries (loaded on demand for IANA mode). */
+  ianaTimezones?: FeatureCollection;
+  /** Loaded ETC/GMT offset-keyed geometries for the active selection/cache. */
+  etcgmtOffsetGeometries?: EtcGmtOffsetGeometries;
+  /** Mapping from IANA tzid -> ETC/GMT offset key (generated artifact) */
+  etcgmtIanaToOffset?: Record<string, string>;
   /** World 110m countries (context layer) */
   countries?: FeatureCollection | null;
-  /** Original TopoJSON topology for advanced operations (merge, mesh) */
-  topology?: Topology;
+  /** Natural Earth International Date Line feature(s), extracted from geographic-lines */
+  geographic_idl?: FeatureCollection | null;
 }
 
 /**
@@ -58,6 +77,8 @@ export interface GlobePalette {
   border: string;
   /** Graticule (grid lines) color */
   graticule: string;
+  /** Geographic lines color (equator, tropics, polar circles, IDL) */
+  geographic: string;
   /** Globe rim/edge glow color */
   rim: string;
   /** Default marker fill color */
@@ -94,6 +115,8 @@ export interface MarkerEntry {
   tz: string;
   /** Geographic coordinates [latitude, longitude] */
   coords: LatLng;
+  /** Optional ETC/GMT canonical offset key (UTC±HH:MM) attached at build/runtime */
+  etcgmtOffsetKey?: string;
 }
 
 /** Tooltip position state */
@@ -119,8 +142,8 @@ export interface CachedNight {
 export const TZ_BOUNDARY_MODES = {
   /** 15-degree longitudinal band centered on timezone's canonical longitude. Fast to compute, but less accurate. */
   NAUTIC: "nautic",
-  /** Merged high-level timezone shape based on ISO8601 standard. */
-  ISO8601: "iso8601",
+  /** Merged high-level timezone shape based on ETC/GMT offset buckets. */
+  ETCGMT: "etc-gmt",
   /** Individual country-level polygons based on IANA timezone data. */
   IANA: "iana",
   /** No boundaries or highlights. */
@@ -167,7 +190,7 @@ export interface TzGlobePickerProps {
   /**
    * Timezone boundary visualization mode.
    * - 'nautic': 15-degree longitudinal band.
-   * - 'iso8601': Merged high-level timezone shape.
+   * - 'etc-gmt': Merged high-level timezone shape based on ETC/GMT offset buckets.
    * - 'iana': Individual country-level polygons.
    * - 'none': No boundaries or highlights.
    * Defaults to 'none'.
@@ -192,9 +215,6 @@ export interface TzGlobePickerProps {
   className?: string;
   /** Colors for globe rendering. Defaults to COLORS constant. */
   colors?: Partial<GlobePalette>;
-  /**
-   * Timestamp that triggers a flyTo animation to the current timezone when changed.
-   * Use this to programmatically reset the view to the selected timezone.
-   */
-  flyToTrigger?: number;
+  /** Optional simulated date/time for testing sun position at different times of year (e.g., solstices). Uses current time when undefined. */
+  simulatedDate?: Date;
 }
