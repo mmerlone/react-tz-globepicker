@@ -1,21 +1,25 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   TzGlobePicker,
-  TzGlobePreloader,
-  CANONICAL_MARKERS,
+  IANA_TZ_DATA,
   SpaceBackground,
   TZ_BOUNDARY_MODES,
   type TzGlobePickerProps,
   type GlobePalette,
 } from "react-tz-globepicker";
 import CustomBackground from "./components/CustomBackground";
-import { ControlPanel } from "./components/ControlPanel";
+
+const ControlPanel = React.lazy(async () => {
+  const mod = await import("./components/ControlPanel");
+  return { default: mod.ControlPanel };
+});
 
 const CUSTOM_COLORS: GlobePalette = {
   ocean: "#94c8ff",
   land: "#21912a",
   border: "#4d8950ff",
   graticule: "rgba(255,255,255,0.28)",
+  geographic: "rgba(245, 6, 6, 0.15)",
   rim: "rgba(255,255,255,0.25)",
   defaultMarker: "#e0e1dd",
   defaultMarkerStroke: "#1b263b",
@@ -29,7 +33,7 @@ const CUSTOM_COLORS: GlobePalette = {
 };
 
 const DEFAULT_OPTIONS: TzGlobePickerProps = {
-  timezone: "America/New_York",
+  timezone: "America/Sao_Paulo",
   size: 800,
   showMarkers: true,
   showTooltips: true,
@@ -37,16 +41,16 @@ const DEFAULT_OPTIONS: TzGlobePickerProps = {
   minZoom: 0.1,
   maxZoom: 10,
   initialZoom: 0.8,
-  showTZBoundaries: TZ_BOUNDARY_MODES.ISO8601,
+  showTZBoundaries: TZ_BOUNDARY_MODES.ETCGMT,
   showCountryBorders: true,
+  showGeographic: true,
   background: null,
   colors: CUSTOM_COLORS,
 };
 
-// Timezone options from CANONICAL_MARKERS
-const TIMEZONE_OPTIONS: string[] = CANONICAL_MARKERS.map((m): string => m.tz);
-
 function App(): React.ReactElement {
+  const [shouldMountControlPanel, setShouldMountControlPanel] = useState(false);
+
   // Form state
   const [timezone, setTimezone] = useState<string | null>(
     DEFAULT_OPTIONS.timezone ?? null,
@@ -70,10 +74,13 @@ function App(): React.ReactElement {
     DEFAULT_OPTIONS.initialZoom ?? 0.8,
   );
   const [showTZBoundaries, setShowTZBoundaries] = useState(
-    DEFAULT_OPTIONS.showTZBoundaries ?? TZ_BOUNDARY_MODES.ISO8601,
+    DEFAULT_OPTIONS.showTZBoundaries ?? TZ_BOUNDARY_MODES.ETCGMT,
   );
   const [showCountryBorders, setShowCountryBorders] = useState(
     DEFAULT_OPTIONS.showCountryBorders ?? true,
+  );
+  const [showGeographic, setShowGeographic] = useState<boolean>(
+    DEFAULT_OPTIONS.showGeographic ?? true,
   );
   type BackgroundType = "transparent" | "color" | "space" | "custom";
   const [backgroundType, setBackgroundType] =
@@ -82,7 +89,49 @@ function App(): React.ReactElement {
   const [colors, setColors] = useState<GlobePalette>(
     (DEFAULT_OPTIONS.colors as GlobePalette) ?? CUSTOM_COLORS,
   );
-  const [flyToTrigger, setFlyToTrigger] = useState<number>(0);
+  const [simulatedDate, setSimulatedDate] = useState<Date | undefined>(
+    undefined,
+  );
+
+  useEffect((): (() => void) => {
+    if (typeof window === "undefined") {
+      setShouldMountControlPanel(true);
+      return (): void => {};
+    }
+
+    const globalWindow = window as Window &
+      typeof globalThis & {
+        cancelIdleCallback?: (handle: number) => void;
+        requestIdleCallback?: (
+          callback: IdleRequestCallback,
+          options?: IdleRequestOptions,
+        ) => number;
+      };
+    const mountControls = (): void => {
+      setShouldMountControlPanel(true);
+    };
+
+    const requestIdleCallback = globalWindow.requestIdleCallback;
+    const cancelIdleCallback = globalWindow.cancelIdleCallback;
+
+    if (
+      typeof requestIdleCallback === "function" &&
+      typeof cancelIdleCallback === "function"
+    ) {
+      const idleHandle = requestIdleCallback((): void => mountControls(), {
+        timeout: 750,
+      });
+
+      return (): void => {
+        cancelIdleCallback(idleHandle);
+      };
+    }
+
+    const timeoutHandle = globalWindow.setTimeout(mountControls, 200);
+    return (): void => {
+      globalWindow.clearTimeout(timeoutHandle);
+    };
+  }, []);
 
   // Compute background prop passed to TzGlobePicker
   const backgroundProp = useMemo((): React.ReactElement | string | null => {
@@ -105,19 +154,16 @@ function App(): React.ReactElement {
     setInitialZoom(DEFAULT_OPTIONS.initialZoom ?? 0.8);
     setCurrentZoom(DEFAULT_OPTIONS.initialZoom ?? 0.8);
     setShowTZBoundaries(
-      DEFAULT_OPTIONS.showTZBoundaries ?? TZ_BOUNDARY_MODES.ISO8601,
+      DEFAULT_OPTIONS.showTZBoundaries ?? TZ_BOUNDARY_MODES.ETCGMT,
     );
     setShowCountryBorders(DEFAULT_OPTIONS.showCountryBorders ?? true);
     setBackgroundType("transparent");
     setBackgroundValue(null);
     setColors((DEFAULT_OPTIONS.colors as GlobePalette) ?? CUSTOM_COLORS);
-    // Trigger flyTo to the selected timezone
-    setFlyToTrigger(Date.now());
   };
 
   return (
     <>
-      <TzGlobePreloader />
       <div
         id="TzGlobeWrapper"
         style={{
@@ -163,9 +209,10 @@ function App(): React.ReactElement {
               onZoomChange={setCurrentZoom}
               showTZBoundaries={showTZBoundaries}
               showCountryBorders={showCountryBorders}
+              showGeographic={showGeographic}
               background={backgroundProp}
               colors={colors}
-              flyToTrigger={flyToTrigger}
+              simulatedDate={simulatedDate}
             />
 
             <p style={{ margin: 0, fontSize: "0.95rem", opacity: 0.8 }}>
@@ -174,37 +221,47 @@ function App(): React.ReactElement {
             </p>
           </div>
 
-          <ControlPanel
-            timezone={timezone}
-            onTimezoneChange={setTimezone}
-            size={size}
-            onSizeChange={setSize}
-            showMarkers={showMarkers}
-            onShowMarkersChange={setShowMarkers}
-            showTooltips={showTooltips}
-            onShowTooltipsChange={setShowTooltips}
-            zoomMarkers={zoomMarkers}
-            onZoomMarkersChange={setZoomMarkers}
-            minZoom={minZoom}
-            onMinZoomChange={setMinZoom}
-            maxZoom={maxZoom}
-            onMaxZoomChange={setMaxZoom}
-            currentZoom={currentZoom}
-            onCurrentZoomChange={setCurrentZoom}
-            showTZBoundaries={showTZBoundaries}
-            onShowTZBoundariesChange={setShowTZBoundaries}
-            showCountryBorders={showCountryBorders}
-            onShowCountryBordersChange={setShowCountryBorders}
-            backgroundType={backgroundType}
-            backgroundValue={backgroundValue}
-            onBackgroundTypeChange={setBackgroundType}
-            onBackgroundValueChange={setBackgroundValue}
-            colors={colors}
-            onColorsChange={setColors}
-            onReset={handleReset}
-            timezoneOptions={TIMEZONE_OPTIONS}
-            inline
-          />
+          <div style={{ flex: "0 0 300px", minWidth: 0 }}>
+            {shouldMountControlPanel ? (
+              <React.Suspense fallback={null}>
+                <ControlPanel
+                  timezone={timezone}
+                  onTimezoneChange={setTimezone}
+                  size={size}
+                  onSizeChange={setSize}
+                  showMarkers={showMarkers}
+                  onShowMarkersChange={setShowMarkers}
+                  showTooltips={showTooltips}
+                  onShowTooltipsChange={setShowTooltips}
+                  zoomMarkers={zoomMarkers}
+                  onZoomMarkersChange={setZoomMarkers}
+                  minZoom={minZoom}
+                  onMinZoomChange={setMinZoom}
+                  maxZoom={maxZoom}
+                  onMaxZoomChange={setMaxZoom}
+                  currentZoom={currentZoom}
+                  onCurrentZoomChange={setCurrentZoom}
+                  showTZBoundaries={showTZBoundaries}
+                  onShowTZBoundariesChange={setShowTZBoundaries}
+                  showCountryBorders={showCountryBorders}
+                  onShowCountryBordersChange={setShowCountryBorders}
+                  showGeographic={showGeographic}
+                  onShowGeographicChange={setShowGeographic}
+                  backgroundType={backgroundType}
+                  backgroundValue={backgroundValue}
+                  onBackgroundTypeChange={setBackgroundType}
+                  onBackgroundValueChange={setBackgroundValue}
+                  colors={colors}
+                  onColorsChange={setColors}
+                  onReset={handleReset}
+                  timezoneOptions={IANA_TZ_DATA}
+                  simulatedDate={simulatedDate}
+                  onSimulatedDateChange={setSimulatedDate}
+                  inline
+                />
+              </React.Suspense>
+            ) : null}
+          </div>
         </div>
       </div>
     </>

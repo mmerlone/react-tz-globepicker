@@ -1,4 +1,6 @@
 import React from "react";
+import { format, parseISO } from "date-fns";
+import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import {
   SpaceBackground,
   ResetButton,
@@ -35,6 +37,8 @@ type ControlPanelProps = {
   onShowTZBoundariesChange: (m: TzBoundaryMode) => void;
   showCountryBorders: boolean;
   onShowCountryBordersChange: (v: boolean) => void;
+  showGeographic: boolean;
+  onShowGeographicChange: (v: boolean) => void;
   backgroundType: BackgroundType;
   backgroundValue: string | null;
   onBackgroundTypeChange: (t: BackgroundType) => void;
@@ -42,7 +46,9 @@ type ControlPanelProps = {
   colors: GlobePalette;
   onColorsChange: (c: GlobePalette) => void;
   onReset: () => void;
-  timezoneOptions: string[];
+  timezoneOptions: readonly string[];
+  simulatedDate?: Date;
+  onSimulatedDateChange: (d: Date | undefined) => void;
   inline?: boolean;
 };
 
@@ -67,6 +73,8 @@ export function ControlPanel({
   onShowTZBoundariesChange,
   showCountryBorders,
   onShowCountryBordersChange,
+  showGeographic,
+  onShowGeographicChange,
   backgroundType,
   backgroundValue,
   onBackgroundTypeChange,
@@ -75,6 +83,8 @@ export function ControlPanel({
   onColorsChange,
   onReset,
   timezoneOptions,
+  simulatedDate,
+  onSimulatedDateChange,
   inline = false,
 }: ControlPanelProps): React.ReactElement {
   const BREAKPOINT = 900;
@@ -481,12 +491,12 @@ export function ControlPanel({
                   <input
                     type="radio"
                     name="tzBoundaries"
-                    checked={showTZBoundaries === TZ_BOUNDARY_MODES.ISO8601}
+                    checked={showTZBoundaries === TZ_BOUNDARY_MODES.ETCGMT}
                     onChange={() =>
-                      onShowTZBoundariesChange(TZ_BOUNDARY_MODES.ISO8601)
+                      onShowTZBoundariesChange(TZ_BOUNDARY_MODES.ETCGMT)
                     }
                   />
-                  ISO 8601
+                  ETC/GMT
                 </label>
                 <label
                   style={{ display: "flex", alignItems: "center", gap: 6 }}
@@ -508,6 +518,85 @@ export function ControlPanel({
                 checked={showCountryBorders}
                 onChange={onShowCountryBordersChange}
               />
+              <Toggle
+                label="Show geographic lines"
+                checked={showGeographic}
+                onChange={onShowGeographicChange}
+              />
+            </div>
+          </div>
+
+          {/* Simulated Date/Time for Sun Position Testing */}
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>
+              Simulated Date/Time
+            </div>
+            <div style={{ display: "grid", gap: 6 }}>
+              <label
+                style={{ display: "flex", flexDirection: "column", gap: 4 }}
+              >
+                <span style={{ fontSize: "0.85rem", opacity: 0.7 }}>
+                  Set date/time to test sun position (e.g., solstices)
+                </span>
+                <input
+                  type="datetime-local"
+                  value={
+                    simulatedDate
+                      ? format(
+                          toZonedTime(
+                            simulatedDate,
+                            Intl.DateTimeFormat().resolvedOptions().timeZone,
+                          ),
+                          "yyyy-MM-dd'T'HH:mm",
+                        )
+                      : ""
+                  }
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const localDate = parseISO(e.target.value + ":00");
+                      const utcDate = fromZonedTime(
+                        localDate,
+                        Intl.DateTimeFormat().resolvedOptions().timeZone,
+                      );
+                      onSimulatedDateChange(utcDate);
+                    } else {
+                      onSimulatedDateChange(undefined);
+                    }
+                  }}
+                  style={{
+                    padding: "8px",
+                    borderRadius: 6,
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    background: "rgba(0,0,0,0.2)",
+                    color: "#e0e0e0",
+                    fontSize: "0.9rem",
+                    colorScheme: "dark",
+                  }}
+                />
+              </label>
+            </div>
+            <button
+              onClick={() => onSimulatedDateChange(undefined)}
+              style={{
+                marginTop: 8,
+                background: "none",
+                border: "1px solid rgba(255,255,255,0.15)",
+                color: "#e0e0e0",
+                padding: "4px 8px",
+                borderRadius: 6,
+                fontSize: "0.75rem",
+              }}
+            >
+              Reset to Now
+            </button>
+            <div style={{ marginTop: 8, fontSize: "0.75rem", opacity: 0.6 }}>
+              {simulatedDate
+                ? `Simulating: ${simulatedDate.toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}`
+                : "Using current time"}
             </div>
           </div>
 
