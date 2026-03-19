@@ -9,8 +9,7 @@ https://miro.medium.com/v2/resize:fit:4800/format:webp/0*AuW8APtlc27iI-5D
 - Interactive 3D globe visualization with drag-to-rotate and zoom
 - Clickable timezone markers with hover tooltips
 - Animated fly-to transitions when selecting timezones
-- Multiple visualization modes (nautic bands, iso8601 boundaries, iana country-level)
-- Lazy preloading support for improved performance
+- Multiple visualization modes (nautic bands, etc-gmt boundaries, iana country-level)
 - Bundled timezone data for easy setup
 
 ## Installation
@@ -38,7 +37,6 @@ Here's a complete example showing how to use the utilities together, similar to 
 import React, { useState, useEffect } from "react";
 import {
   TzGlobePicker,
-  TzGlobePreloader,
   buildMarkerList,
 } from "react-tz-globepicker";
 
@@ -86,7 +84,7 @@ function TimezoneSelector() {
           showTooltips={true}
           zoomMarkers={true}
           showCountryBorders={true}
-          showTZBoundaries="iso8601"
+          showTZBoundaries="etc-gmt"
         />
       </div>
 
@@ -128,14 +126,8 @@ function TimezoneSelector() {
   );
 }
 
-// App with preloader
 function App() {
-  return (
-    <>
-      <TzGlobePreloader />
-      <TimezoneSelector />
-    </>
-  );
+  return <TimezoneSelector />;
 }
 ```
 
@@ -195,7 +187,7 @@ import {
 
 function App() {
   const [mode, setMode] = React.useState<TzBoundaryMode>(
-    TZ_BOUNDARY_MODES.ISO8601,
+    TZ_BOUNDARY_MODES.ETCGMT,
   );
 
   return (
@@ -214,33 +206,13 @@ The component uses bundled timezone data and requires no additional configuratio
 
 ### Updating Globe Data
 
-To update the bundled globe data file, run:
+To update the bundled globe data artifacts, run:
 
 ```bash
 pnpm gen:globe
 ```
 
-This will fetch the latest data from Natural Earth and regenerate the bundled `src/data/globe-data.json`.
-
-## Lazy Preloading
-
-Use `TzGlobePreloader` to preload the component and data before it's needed:
-
-```tsx
-import { TzGlobePreloader } from "react-tz-globepicker";
-
-function App() {
-  return (
-    <>
-      {/* Preload in background */}
-      <TzGlobePreloader />
-
-      {/* Your app content */}
-      <YourApp />
-    </>
-  );
-}
-```
+This will fetch the latest data from Natural Earth and regenerate the files in `src/data/`, including the split IANA and ETC/GMT geometry artifacts.
 
 ## API Reference
 
@@ -254,7 +226,7 @@ function App() {
 | `showMarkers`        | `boolean`                                           | `false`     | Whether to render timezone markers                 |
 | `showTooltips`       | `boolean`                                           | `false`     | Whether to show hover tooltips on markers          |
 | `zoomMarkers`        | `boolean`                                           | `false`     | When true, markers scale with zoom level           |
-| `showTZBoundaries`   | `'nautic' \| 'iso8601' \| 'iana' \| 'none'`          | `'none'`    | Timezone boundary visualization mode               |
+| `showTZBoundaries`   | `'nautic' \| 'etc-gmt' \| 'iana' \| 'none'`          | `'none'`    | Timezone boundary visualization mode               |
 | `showCountryBorders` | `boolean`                                           | `false`     | Whether to render country borders                  |
 | `markers`            | `MarkerEntry[]`                                     | -           | Optional explicit marker list                      |
 | `background`         | `string \| React.ReactElement \| null \| undefined` | `undefined` | Background styling (color, JSX, or transparent)    |
@@ -265,21 +237,14 @@ function App() {
 | `style`              | `React.CSSProperties`                               | -           | Optional inline styles for the outer container     |
 | `className`          | `string`                                            | -           | Optional CSS class name for the outer container    |
 
-### TzGlobePreloader Props
-
-| Prop   | Type | Default | Description                      |
-| ------ | ---- | ------- | -------------------------------- |
-| (none) | -    | -       | Component uses bundled data only |
-
 ## Exported Components
 
 ```typescript
-import { TzGlobePicker, SpaceBackground, TzGlobePreloader } from "react-tz-globepicker";
+import { TzGlobePicker, SpaceBackground } from "react-tz-globepicker";
 ```
 
 - `TzGlobePicker`: Main interactive globe component
 - `SpaceBackground`: Optional starfield-style background component
-- `TzGlobePreloader`: Preloader component for lazy loading
 
 ## Exported Types
 

@@ -10,7 +10,7 @@ This file provides guidance for working with the react-tz-globepicker project.
 - Interactive 3D globe visualization (drag, zoom)
 - Clickable timezone markers with tooltips
 - Animated fly-to transitions
-- Multiple boundary modes (nautic, iso8601, iana)
+- Multiple boundary modes (nautic, etc-gmt, iana)
 - Bundled timezone and country data
 - No UI framework dependencies (pure React)
 
@@ -33,17 +33,17 @@ pnpm gen:globe         # Update globe data from sources
 ## Data Sources
 - [Natural Earth 10m Time Zones](https://github.com/nvkelso/natural-earth-vector): authoritative timezone boundaries
 - [visionscarto-world-atlas](https://github.com/visionscarto/world-atlas): simplified world country boundaries
-- Data is processed by `scripts/update-globe-data.ts` and bundled in `src/data/globe-data.json`
+- Data is processed by `scripts/update-globe-data.ts` and emitted into `src/data/`
 
 ## Directory Structure
-- `src/components/TzGlobePicker/` — main globe component and helpers
-- `src/components/TzGlobePreloader/` — preloader component
+- `src/TzGlobePicker.tsx` — public component entry
+- `src/globe/` — internal globe engine modules (hooks, renderers, interaction, UI, types)
 - `src/utils/` — timezone utilities, marker builders, coordinate maps
-- `src/data/` — bundled geodata
+- `src/data/` — generated geodata and split geometry artifacts
 - `demo/` — demo app
 
 ## Export Surface
-- Main: `TzGlobePicker`, `TzGlobePreloader`
+- Main: `TzGlobePicker`
 - Types: `TzGlobePickerProps`, `TzBoundaryMode`, `GlobeState`, `MarkerEntry`, etc.
 - Constants: `COLORS`, `TILT`, `GRATICULE_STEP`, `MAX_BOUNDARY_AREA`, ...
 - Utils: `buildMarkerList`, `CANONICAL_MARKERS`, `TIMEZONE_COORDINATES`, `getUtcOffsetMinutes`, ...
@@ -68,5 +68,3 @@ pnpm gen:globe         # Update globe data from sources
 
 ## Contact
 - Maintainer: Marcio Merlone (<mmerlone@gmail.com>)
-
-
