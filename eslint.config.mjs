@@ -112,6 +112,7 @@ export default [
       ...typescript.configs.recommended.rules,
 
       // Strict TypeScript rules
+      "no-duplicate-imports": "error",
       "@typescript-eslint/no-unused-vars": "error",
       "@typescript-eslint/no-use-before-define": "error",
       "@typescript-eslint/no-shadow": "error",
@@ -156,6 +157,7 @@ export default [
       "@typescript-eslint/prefer-optional-chain": "error",
 
       // Restricted patterns
+      "@typescript-eslint/no-non-null-assertion": "error",
       "no-restricted-syntax": [
         "error",
         {
