@@ -10,8 +10,7 @@
  * ```
  */
 // Main exports
-export { TzGlobePicker } from "./components/TzGlobePicker/TzGlobePicker";
-export { TzGlobePreloader } from "./components/TzGlobePreloader/TzGlobePreloader";
+export { TzGlobePicker } from "./TzGlobePicker";
 
 // Types
 export type {
@@ -24,9 +23,9 @@ export type {
   GeoData,
   RenderFn,
   GlobePalette,
-} from "./components/TzGlobePicker/types/globe.types";
+} from "./globe/types/globe.types";
 
-export { TZ_BOUNDARY_MODES } from "./components/TzGlobePicker/types/globe.types";
+export { TZ_BOUNDARY_MODES } from "./globe/types/globe.types";
 
 // Constants
 export {
@@ -44,25 +43,36 @@ export {
   MAX_ZOOM,
   ZOOM_SENSITIVITY,
   MAX_LATITUDE,
-} from "./components/TzGlobePicker/constants/globe.constants";
+} from "./globe/constants/globe.constants";
 
 // Utils
 export {
   formatUtcOffset,
   getSubsolarPoint,
-} from "./components/TzGlobePicker/utils/globeUtils";
-export { getTimezoneCenter } from "./utils/timezoneCoordinates";
-export { getUtcOffsetMinutes, getUtcOffsetHour } from "./utils/timezoneMapping";
-export { buildMarkerList, CANONICAL_MARKERS } from "./utils/timezoneMarkers";
-export { TIMEZONE_COORDINATES } from "./utils/timezoneCoordinates";
+} from "./globe/utils/globeUtils";
 export {
+  getTimezoneCenter,
+  TIMEZONE_COORDINATES,
+} from "./utils/timezoneCoordinates";
+export { IANA_TZ_DATA } from "./data/iana-data";
+export {
+  getUtcOffsetMinutes,
+  getUtcOffsetHour,
+  ianaToEtc,
+  etcToOffset,
+  offsetKeyFromEtc,
   mapToCanonicalTz,
   utcOffsetToLongitude,
 } from "./utils/timezoneMapping";
+export {
+  buildMarkerList,
+  CANONICAL_MARKERS,
+  getCanonicalMarkers,
+} from "./utils/timezoneMarkers";
 
 // Hook (if needed)
 export {
   useGlobeState,
   type GlobeState,
-} from "./components/TzGlobePicker/hooks/useGlobeState";
-export { SpaceBackground, ResetButton } from "./components/TzGlobePicker/ui";
+} from "./globe/hooks/useGlobeState";
+export { SpaceBackground, ResetButton } from "./globe/ui";

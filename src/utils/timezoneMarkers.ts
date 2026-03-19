@@ -1,6 +1,7 @@
 import { TIMEZONE_COORDINATES } from "./timezoneCoordinates";
-import { IANA_TZ_DATA } from "../data/iana-data";
-import type { MarkerEntry } from "../components/TzGlobePicker/types/globe.types";
+import { CANONICAL_MARKERS } from "../data/canonical-markers";
+import type { MarkerEntry } from "../globe/types/globe.types";
+import { ianaToEtc } from "./timezoneMapping";
 
 /** Build the list of markers from TIMEZONE_COORDINATES.
  * If `allowed` is provided, only markers whose tz id is in `allowed` are included.
@@ -12,10 +13,19 @@ export function buildMarkerList(allowed?: Iterable<string>): MarkerEntry[] {
   for (const [tz, [lat, lng]] of Object.entries(TIMEZONE_COORDINATES)) {
     if (tz === "UTC" || tz === "GMT" || tz.startsWith("Etc/")) continue;
     if (allowedSet && !allowedSet.has(tz)) continue;
-    entries.push({ tz, coords: [lat, lng] });
+    let etcKey: string | undefined;
+    try {
+      etcKey = ianaToEtc(tz);
+    } catch {
+      etcKey = undefined;
+    }
+    entries.push({ tz, coords: [lat, lng], etcgmtOffsetKey: etcKey });
   }
   return entries;
 }
 
-/** Subset of markers filtered to only IANA timezone regions (~419 entries) */
-export const CANONICAL_MARKERS: MarkerEntry[] = buildMarkerList(IANA_TZ_DATA);
+export function getCanonicalMarkers(): MarkerEntry[] {
+  return CANONICAL_MARKERS;
+}
+
+export { CANONICAL_MARKERS };

@@ -13,6 +13,7 @@
  */
 
 import { IANA_TZ_DATA } from "../data/iana-data";
+import { getTimezoneCenter } from "./timezoneCoordinates";
 
 /**
  * Internal implementation of UTC offset calculation without caching.
@@ -34,8 +35,8 @@ function getUtcOffsetMinutesUncached(timezone: string): number {
     if (!signChar || !hoursStr || !minutesStr) return 0;
 
     const sign = signChar === "+" ? 1 : -1;
-    const hours = parseInt(hoursStr, 10);
-    const minutes = parseInt(minutesStr, 10);
+    const hours = parseInt(hoursStr ?? "0", 10);
+    const minutes = parseInt(minutesStr ?? "0", 10);
     return sign * (hours * 60 + minutes);
   } catch {
     return 0;
@@ -45,14 +46,25 @@ function getUtcOffsetMinutesUncached(timezone: string): number {
 // Cache for UTC offset calculations - avoids repeated Intl API calls
 const offsetCache = new Map<string, number>();
 
-// Pre-computed set for O(1) lookup of canonical timezones
-const canonicalTzSet = new Set<string>(IANA_TZ_DATA);
+let canonicalTzSet: Set<string> | null = null;
+let canonicalOffsets: Map<string, number> | null = null;
 
-// Pre-computed offsets for all IANA timezones to avoid O(n²) in mapToCanonicalTz
-const canonicalOffsets: Map<string, number> = new Map();
-for (const tz of IANA_TZ_DATA) {
-  const offset = getUtcOffsetMinutesUncached(tz);
-  canonicalOffsets.set(tz, offset);
+function getCanonicalTzSet(): Set<string> {
+  canonicalTzSet ??= new Set<string>(IANA_TZ_DATA);
+  return canonicalTzSet;
+}
+
+function getCanonicalOffsets(): Map<string, number> {
+  if (canonicalOffsets) {
+    return canonicalOffsets;
+  }
+
+  const nextOffsets = new Map<string, number>();
+  for (const tz of IANA_TZ_DATA) {
+    nextOffsets.set(tz, getUtcOffsetMinutesUncached(tz));
+  }
+  canonicalOffsets = nextOffsets;
+  return canonicalOffsets;
 }
 
 /**
@@ -71,7 +83,7 @@ for (const tz of IANA_TZ_DATA) {
 export function getUtcOffsetMinutes(timezone: string): number {
   // Check cache first
   if (offsetCache.has(timezone)) {
-    return offsetCache.get(timezone)!;
+    return offsetCache.get(timezone) ?? 0;
   }
 
   const offset = getUtcOffsetMinutesUncached(timezone);
@@ -120,11 +132,12 @@ export function getUtcOffsetHour(timezone: string): number {
  */
 export function mapToCanonicalTz(timezone: string): string {
   // O(1) lookup using Set instead of O(n) array.some()
-  if (canonicalTzSet.has(timezone)) {
+  if (getCanonicalTzSet().has(timezone)) {
     return timezone;
   }
 
   const targetOffset = getUtcOffsetMinutes(timezone);
+  const offsetsByTimezone = getCanonicalOffsets();
 
   // Find the canonical region with the closest UTC offset
   // Using pre-computed offsets for O(1) lookup per iteration
@@ -132,7 +145,7 @@ export function mapToCanonicalTz(timezone: string): string {
   let bestDiff = Infinity;
 
   for (const canonical of IANA_TZ_DATA) {
-    const canonicalOffset = canonicalOffsets.get(canonical)!;
+    const canonicalOffset = offsetsByTimezone.get(canonical) ?? 0;
     const diff = Math.abs(canonicalOffset - targetOffset);
     if (diff < bestDiff) {
       bestDiff = diff;
@@ -164,4 +177,104 @@ export function utcOffsetToLongitude(utcOffset: number): number {
   if (longitude > 180) return longitude - 360;
   if (longitude < -180) return longitude + 360;
   return longitude;
+}
+
+/** Format minutes offset into canonical `UTC±HH:MM` string. */
+function formatOffsetMinutesToIsoKey(minutes: number): string {
+  const sign = minutes >= 0 ? "+" : "-";
+  const abs = Math.abs(minutes);
+  const hh = String(Math.floor(abs / 60)).padStart(2, "0");
+  const mm = String(abs % 60).padStart(2, "0");
+  return `UTC${sign}${hh}:${mm}`;
+}
+
+/**
+ * Compute canonical `UTC±HH:MM` key for an IANA timezone using a fixed winter date
+ * to avoid DST ambiguity. Throws on invalid/unknown timezone.
+ */
+export function ianaToEtc(iana: string): string {
+  if (!iana || typeof iana !== "string") {
+    throw new Error(`ianaToEtc: invalid timezone '${String(iana)}'`);
+  }
+
+  try {
+    // Choose sample date based on approximate hemisphere: Jan 1 for northern
+    // hemisphere, Jul 1 for southern hemisphere. This yields the standard
+    // (non-DST) offset for most timezones.
+    // Use try-catch in case timezone is not in TIMEZONE_COORDINATES.
+    let lat = 0;
+    try {
+      lat = getTimezoneCenter(iana)[0] ?? 0;
+    } catch {
+      // Default to northern hemisphere if timezone center lookup fails
+      lat = 0;
+    }
+    const sample =
+      lat < 0
+        ? new Date(Date.UTC(2020, 6, 1, 12, 0, 0))
+        : new Date(Date.UTC(2020, 0, 1, 12, 0, 0));
+    const fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: iana,
+      timeZoneName: "longOffset",
+    });
+    const parts = fmt.formatToParts(sample);
+    const tzPart = parts.find((p) => p.type === "timeZoneName")?.value ?? "";
+    const m = tzPart.match(/GMT([+-])(\d{2}):(\d{2})/);
+    if (!m) return "UTC+00:00";
+    const [, signChar, hoursStr, minutesStr] = m;
+    const sign = signChar === "+" ? 1 : -1;
+    const hours = parseInt(hoursStr ?? "0", 10);
+    const mins = parseInt(minutesStr ?? "0", 10);
+    return formatOffsetMinutesToIsoKey(sign * (hours * 60 + mins));
+  } catch (err) {
+    throw new Error(
+      `ianaToEtc: failed to compute offset for '${iana}': ${String(err)}`,
+    );
+  }
+}
+
+/**
+ * Convert an `Etc/GMT` or `GMT` style label into canonical `UTC±HH:MM` key.
+ * Examples:
+ * - `Etc/GMT+5` -> `UTC-05:00` (note reversed sign semantics)
+ * - `Etc/GMT-3` -> `UTC+03:00`
+ * - `GMT+05:30` -> `UTC+05:30`
+ * - `UTC+02:00` -> `UTC+02:00`
+ */
+export function offsetKeyFromEtc(etcZone: string): string {
+  if (!etcZone || typeof etcZone !== "string") {
+    throw new Error(`offsetKeyFromEtc: invalid etcZone '${String(etcZone)}'`);
+  }
+  // Already in canonical form
+  if (/^UTC[+-]\d{2}:\d{2}$/.test(etcZone)) return etcZone;
+
+  // Handle plain UTC/GMT variants
+  if (/^(Etc\/)?(GMT|UTC)$/.test(etcZone)) return "UTC+00:00";
+
+  // Handle Etc/GMT+N semantics first (note reversed sign)
+  const etcMatch = etcZone.match(/Etc\/GMT([+-])(\d{1,2})$/);
+  if (etcMatch) {
+    const [, signChar, numStr] = etcMatch;
+    const n = parseInt(numStr ?? "0", 10);
+    // Etc/GMT+N -> UTC-(N:00)
+    const total = signChar === "+" ? -n * 60 : n * 60;
+    return formatOffsetMinutesToIsoKey(total);
+  }
+
+  // Handle GMT+/-HH:MM patterns (e.g. GMT+05:30)
+  const gmtMatch = etcZone.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+  if (gmtMatch) {
+    const [, signChar, hoursStr, minutesStr] = gmtMatch;
+    const hours = parseInt(hoursStr ?? "0", 10);
+    const minutes = minutesStr ? parseInt(minutesStr, 10) : 0;
+    const sign = signChar === "+" ? 1 : -1;
+    const total = sign * (hours * 60 + minutes);
+    return formatOffsetMinutesToIsoKey(total);
+  }
+
+  throw new Error(`offsetKeyFromEtc: cannot parse '${etcZone}'`);
+}
+
+export function etcToOffset(etcZone: string): { isoKey: string } {
+  return { isoKey: offsetKeyFromEtc(etcZone) };
 }
