@@ -1,8 +1,12 @@
 # react-tz-globepicker
 
+[![npm version](https://img.shields.io/npm/v/@mmerlone/react-tz-globepicker.svg)](https://www.npmjs.com/package/@mmerlone/react-tz-globepicker)
+[![npm downloads](https://img.shields.io/npm/dm/@mmerlone/react-tz-globepicker.svg)](https://www.npmjs.com/package/@mmerlone/react-tz-globepicker)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Interactive 3D globe component for timezone selection with React.
 
-https://miro.medium.com/v2/resize:fit:4800/format:webp/0*AuW8APtlc27iI-5D
+![TZ Globe Picker Demo](tzglobepicker.png)
 
 ## Features
 
