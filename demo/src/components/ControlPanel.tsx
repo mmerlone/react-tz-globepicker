@@ -49,7 +49,6 @@ type ControlPanelProps = {
   timezoneOptions: readonly string[];
   simulatedDate?: Date;
   onSimulatedDateChange: (d: Date | undefined) => void;
-  inline?: boolean;
 };
 
 export function ControlPanel({
@@ -85,7 +84,6 @@ export function ControlPanel({
   timezoneOptions,
   simulatedDate,
   onSimulatedDateChange,
-  inline = false,
 }: ControlPanelProps): React.ReactElement {
   const BREAKPOINT = 900;
   const [isDesktop, setIsDesktop] = React.useState<boolean>(() =>
@@ -154,27 +152,23 @@ export function ControlPanel({
 
       <aside
         style={{
-          position: inline ? "relative" : "fixed",
-          top: inline ? undefined : 0,
-          right: inline ? undefined : 0,
-          height: "100dvh",
-          width: inline ? (isSidebarOpen ? 300 : 0) : sidebarWidth,
-          maxWidth: inline ? (isSidebarOpen ? 360 : 0) : "calc(100vw - 12px)",
-          overflowY: inline ? (isSidebarOpen ? "visible" : "hidden") : "auto",
+          position: "fixed",
+          top: 0,
+          right: 0,
+          height: "100vh",
+          width: sidebarWidth,
+          maxWidth: "calc(100vw - 12px)",
+          overflowY: isSidebarOpen ? "scroll" : "hidden",
           backgroundColor: "rgba(30, 30, 46, 0.95)",
-          padding: inline ? (isSidebarOpen ? 12 : 0) : 16,
+          padding: isSidebarOpen ? 12 : 0,
           color: "#e0e0e0",
           fontSize: "0.8rem",
-          boxShadow: inline ? "none" : "0 8px 32px rgba(0, 0, 0, 0.4)",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
           borderLeft: "1px solid rgba(255, 255, 255, 0.1)",
-          zIndex: inline ? "auto" : 1000,
-          display: inline ? (isSidebarOpen ? "block" : "none") : undefined,
-          transform: inline
-            ? undefined
-            : isSidebarOpen
-              ? "translateX(0)"
-              : "translateX(100%)",
-          transition: inline ? undefined : "transform 0.2s ease",
+          zIndex: 1000,
+          display: isSidebarOpen ? "block" : "none",
+          transform: isSidebarOpen ? "translateX(0)" : "translateX(100%)",
+          transition: "transform 0.2s ease",
         }}
       >
         <div

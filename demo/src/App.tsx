@@ -167,7 +167,7 @@ function App(): React.ReactElement {
       <div
         id="TzGlobeWrapper"
         style={{
-          minHeight: "100vh",
+          height: "100vh",
           width: "100%",
           display: "flex",
           alignItems: "center",
@@ -221,7 +221,7 @@ function App(): React.ReactElement {
             </p>
           </div>
 
-          <div style={{ flex: "0 0 300px", minWidth: 0 }}>
+          <div style={{ flex: "0 0 300px", minWidth: 0, height: "100vh" }}>
             {shouldMountControlPanel ? (
               <React.Suspense fallback={null}>
                 <ControlPanel
@@ -257,7 +257,6 @@ function App(): React.ReactElement {
                   timezoneOptions={IANA_TZ_DATA}
                   simulatedDate={simulatedDate}
                   onSimulatedDateChange={setSimulatedDate}
-                  inline
                 />
               </React.Suspense>
             ) : null}
