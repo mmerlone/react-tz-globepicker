@@ -173,7 +173,11 @@ export function TzGlobePicker(props: TzGlobePickerProps): React.ReactElement {
 
         {!isLoadingGeoData && geoData && !error && (
           <>
-            <GlobeCanvas canvasRef={canvasRef} size={size} />
+            <GlobeCanvas
+              canvasRef={canvasRef}
+              size={size}
+              timezone={props.timezone}
+            />
             <ResetButton size={size} onClick={handleReset} />
             {showTooltips && (
               <GlobeTooltip

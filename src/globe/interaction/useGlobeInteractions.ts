@@ -212,6 +212,9 @@ export function useGlobeInteractions({
   // Track canvas readiness to handle the race condition where canvas hasn't mounted yet
   const [canvasReady, setCanvasReady] = useState(false);
 
+  // Track interval ID for cleanup
+  const intervalIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Detect when canvas becomes available - refs don't trigger re-renders when .current changes
   React.useEffect(() => {
     const MAX_WAIT_MS = 5000; // 5 second timeout
@@ -221,21 +224,34 @@ export function useGlobeInteractions({
       setCanvasReady(true);
     } else {
       // Poll for canvas availability with timeout to prevent infinite polling
-      const intervalId = setInterval((): void => {
+      intervalIdRef.current = setInterval((): void => {
         if (canvasRef.current) {
           setCanvasReady(true);
-          clearInterval(intervalId);
+          if (intervalIdRef.current) {
+            clearInterval(intervalIdRef.current);
+            intervalIdRef.current = null;
+          }
         } else if (Date.now() - startTime > MAX_WAIT_MS) {
           logger.warn(
             { waitTime: MAX_WAIT_MS },
             "Canvas not available after timeout - interactions may not work",
           );
-          clearInterval(intervalId);
+          if (intervalIdRef.current) {
+            clearInterval(intervalIdRef.current);
+            intervalIdRef.current = null;
+          }
         }
       }, 50);
-      return (): void => clearInterval(intervalId);
     }
-  }, []);
+
+    // Cleanup: clear interval on unmount
+    return (): void => {
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current);
+        intervalIdRef.current = null;
+      }
+    };
+  }, [logger]);
 
   React.useEffect(() => {
     // Wait for canvas to be ready

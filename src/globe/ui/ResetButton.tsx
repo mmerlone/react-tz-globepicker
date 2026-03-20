@@ -8,7 +8,6 @@ interface ResetButtonProps {
 }
 
 /** Reset button component for recentering the globe */
-/** TODO: Missing keyboard focus styles for accessibility. */
 export function ResetButton({
   size,
   onClick,
@@ -16,10 +15,14 @@ export function ResetButton({
   const btnSize = Math.min(36, Math.max(24, size * 0.1));
   const iconSize = Math.min(20, Math.max(14, size * 0.06));
 
+  const [isFocused, setIsFocused] = React.useState(false);
+
   return (
     <button
       type="button"
       onClick={onClick}
+      onFocus={(): void => setIsFocused(true)}
+      onBlur={(): void => setIsFocused(false)}
       aria-label="Reset globe to timezone center"
       title="Reset view"
       style={{
@@ -31,16 +34,24 @@ export function ResetButton({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "rgba(255,255,255,0.88)",
-        color: "rgba(0,0,0,0.55)",
-        border: "1px solid rgba(0,0,0,0.08)",
+        background: isFocused
+          ? "rgba(255,255,255,0.96)"
+          : "rgba(255,255,255,0.88)",
+        color: isFocused ? "rgba(0,0,0,0.8)" : "rgba(0,0,0,0.55)",
+        border: isFocused
+          ? "2px solid rgba(59, 130, 246, 0.8)"
+          : "1px solid rgba(0,0,0,0.08)",
         borderRadius: "50%",
         cursor: "pointer",
         padding: 0,
         backdropFilter: "blur(4px)",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
-        transition: "background-color 0.15s, color 0.15s, transform 0.15s",
+        boxShadow: isFocused
+          ? "0 0 0 3px rgba(59, 130, 246, 0.3), 0 1px 4px rgba(0,0,0,0.15)"
+          : "0 1px 4px rgba(0,0,0,0.15)",
+        transition:
+          "background-color 0.15s, color 0.15s, transform 0.15s, border 0.15s, box-shadow 0.15s",
         zIndex: 2,
+        outline: "none",
       }}
       onMouseEnter={(e): void => {
         const btn = e.currentTarget;

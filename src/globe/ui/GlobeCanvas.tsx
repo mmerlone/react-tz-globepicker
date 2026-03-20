@@ -5,6 +5,8 @@ export interface GlobeCanvasProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   /** Width and height of the canvas in CSS pixels */
   size: number;
+  /** Timezone currently selected on the globe */
+  timezone?: string | null;
 }
 
 /**
@@ -14,6 +16,7 @@ export interface GlobeCanvasProps {
 export function GlobeCanvas({
   canvasRef,
   size,
+  timezone,
 }: GlobeCanvasProps): React.ReactElement {
   return (
     <canvas
@@ -29,6 +32,12 @@ export function GlobeCanvas({
         position: "relative",
         zIndex: 1,
       }}
+      role="img"
+      aria-label={
+        timezone
+          ? `Interactive globe showing timezone: ${timezone}`
+          : "Interactive globe for timezone selection"
+      }
     />
   );
 }
