@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "tzid": "Antarctica/Troll",
+        "name": "",
+        "source": "iana"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0,
+              -86
+            ],
+            [
+              0,
+              -68
+            ],
+            [
+              25,
+              -68
+            ],
+            [
+              25,
+              -86
+            ],
+            [
+              0,
+              -86
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

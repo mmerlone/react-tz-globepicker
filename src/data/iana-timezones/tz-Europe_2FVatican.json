@@ -1,0 +1,36 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "tzid": "Europe/Vatican",
+        "name": "",
+        "source": "iana"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              12.457558,
+              41.903332
+            ],
+            [
+              12.457558,
+              41.903332
+            ],
+            [
+              12.457558,
+              41.903332
+            ],
+            [
+              12.457558,
+              41.903332
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "tzid": "Antarctica/Palmer",
+        "name": "",
+        "source": "iana"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -64,
+              -64
+            ],
+            [
+              -63.8,
+              -64.8
+            ],
+            [
+              -65.5,
+              -65.25
+            ],
+            [
+              -65,
+              -64.5
+            ],
+            [
+              -64,
+              -64
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}
