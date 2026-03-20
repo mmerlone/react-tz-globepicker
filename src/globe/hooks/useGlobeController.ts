@@ -26,7 +26,7 @@ export interface GlobeControllerState {
   isLoadingGeoData: boolean;
   geoData: GeoData | null;
   error: Error | null;
-  canvasRef: React.RefObject<HTMLCanvasElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
   tooltip: {
     timezone: string | null;
     position: { x: number; y: number };

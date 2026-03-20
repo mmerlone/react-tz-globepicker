@@ -17,14 +17,14 @@ const logger = buildLogger("globe-interactions");
  */
 interface UseGlobeInteractionsProps {
   /** Reference to the canvas element */
-  canvasRef: React.RefObject<HTMLCanvasElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
   /** Reference to the D3 geo projection */
-  projectionRef: React.RefObject<GeoProjection>;
+  projectionRef: React.RefObject<GeoProjection | null>;
   /** Reference to the canvas 2D rendering context */
-  ctxRef: React.RefObject<CanvasRenderingContext2D>;
+  ctxRef: React.RefObject<CanvasRenderingContext2D | null>;
   /** Reference to the render function */
   renderRef: React.RefObject<
-    (projection: GeoProjection, ctx: CanvasRenderingContext2D) => void
+    ((projection: GeoProjection, ctx: CanvasRenderingContext2D) => void) | null
   >;
   /** Array of active timezone markers */
   activeMarkers: MarkerEntry[];

@@ -2,7 +2,7 @@ import React from "react";
 
 export interface GlobeCanvasProps {
   /** Reference to the underlying HTML5 Canvas element */
-  canvasRef: React.RefObject<HTMLCanvasElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
   /** Width and height of the canvas in CSS pixels */
   size: number;
 }
