@@ -6,6 +6,8 @@ import {
   TZ_BOUNDARY_MODES,
   type TzBoundaryMode,
 } from "../types/globe.types";
+import { ETCGMT_OFFSET_KEYS } from "../../data/etcgmt-offset-geometries";
+import { COMMON_TIMEZONES } from "../../constants";
 
 interface UseGeoDataOptions {
   /**
@@ -320,6 +322,42 @@ export function useGeoData(options?: UseGeoDataOptions): {
     needsIanaTimezones,
     timezone,
   ]);
+
+  // Pre-load timezone boundary data after initial render to speed up zone selection.
+  // This runs independently of the main loading effect and populates the geometry cache.
+  useEffect(() => {
+    // Pre-load all ETC/GMT offset geometries for ETCGMT mode (only 38 offsets).
+    // This makes zone selection nearly instant after initial load.
+    if (boundaryMode === TZ_BOUNDARY_MODES.ETCGMT) {
+      ETCGMT_OFFSET_KEYS.forEach((offsetKey) => {
+        if (!etcgmtGeometryPromiseCache.has(offsetKey)) {
+          // Fire and forget - populates the cache without blocking
+          loadEtcgmtGeometryForOffset(offsetKey).catch((e) => {
+            logger.warn(
+              { err: e, offsetKey },
+              "Failed to pre-load ETC/GMT offset geometry",
+            );
+          });
+        }
+      });
+    }
+
+    // Pre-load common IANA timezones for IANA mode to speed up frequent zone selections.
+    // We only pre-load a curated set of popular timezones to avoid loading all 400+ zones.
+    if (boundaryMode === TZ_BOUNDARY_MODES.IANA) {
+      COMMON_TIMEZONES.forEach((tz) => {
+        if (!ianaTimezonePromiseCache.has(tz)) {
+          // Fire and forget - populates the cache without blocking
+          loadIanaGeometryForTimezone(tz).catch((e) => {
+            logger.warn(
+              { err: e, timezone: tz },
+              "Failed to pre-load IANA timezone geometry",
+            );
+          });
+        }
+      });
+    }
+  }, [boundaryMode, logger]);
 
   return { geoData, isLoading, error };
 }
