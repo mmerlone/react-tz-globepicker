@@ -18,12 +18,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.js"
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "files": [
     "dist",
-    "scripts"
+    "scripts",
+    "src"
   ],
   "scripts": {
     "lint": "eslint .",
@@ -31,7 +33,6 @@
     "type-check": "tsc --noEmit",
     "build": "tsc --project tsconfig.build.json",
     "clean": "rm -rf dist",
-    "prebuild": "pnpm clean",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "gen:globe": "tsx scripts/update-globe-data.ts",
@@ -40,8 +41,8 @@
     "demo": "pnpm --filter ./demo dev"
   },
   "peerDependencies": {
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "dependencies": {
     "d3-drag": "^3.0.0",
@@ -57,8 +58,8 @@
     "@types/d3-selection": "^3.0.11",
     "@types/geojson": "^7946.0.13",
     "@types/node": "^22",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "@types/topojson-client": "^3.1.5",
     "@types/topojson-server": "^3.0.4",
     "@types/topojson-simplify": "^3.0.3",
