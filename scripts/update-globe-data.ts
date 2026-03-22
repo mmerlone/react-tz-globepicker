@@ -911,11 +911,11 @@ export async function generateGlobeData(): Promise<void> {
     });
 
     // 6. Simplify
-    // Increase simplification to reduce file size.
-    // Quantile 0.1 provides good balance between size and visual quality.
-    // For globe display, minor vertex reduction is not noticeable.
-    console.log("  Simplifying topology (quantile=0.1)...");
-    const simplified = simplifyTopology(combinedTopology, 0.1);
+    // Increase simplification to significantly reduce file size.
+    // Quantile 0.25 provides aggressive simplification while maintaining
+    // recognizable shapes for globe-level display.
+    console.log("  Simplifying topology (quantile=0.25)...");
+    const simplified = simplifyTopology(combinedTopology, 0.25);
 
     // Extract simplified IANA features for use in offset geometries
     // (The detailed IANA features are too large to serialize to JSON)
