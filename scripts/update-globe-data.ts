@@ -20,9 +20,6 @@ import {
   TIMEZONE_COORDINATES,
 } from "../src/utils/timezoneCoordinates";
 
-// Debug entry marker to confirm script execution when run via `pnpm run gen:globe`
-console.log("[update-globe-data] entry");
-
 // Handle process.exit properly for Node.js environment
 const processExit = (code: number): never => {
   process.exit(code);
@@ -169,6 +166,12 @@ export async function loadEtcGmtOffsetGeometry(
 `;
 }
 
+/**
+ * Converts an IANA timezone identifier (e.g., "America/New_York") into a safe file stem
+ * for use as a filename. Encodes special characters and formats for JSON file naming.
+ * @param tzid - The IANA timezone identifier (e.g., "America/New_York", "Europe/London")
+ * @returns A sanitized file stem string (e.g., "tz-America_2FNew_York")
+ */
 function tzidToFileStem(tzid: string): string {
   const encoded = encodeURIComponent(tzid).replace(/%/g, "_");
   return `tz-${encoded}`;
@@ -235,6 +238,14 @@ export async function loadIanaTimezoneGeometry(
 `;
 }
 
+/**
+ * Generates a TypeScript module containing canonical timezone markers.
+ * These markers represent the center points of each valid IANA timezone region
+ * and are used for marker placement on the globe.
+ * @param markers - Array of marker entries containing timezone ID, coordinates, and optional ETC/GMT offset key
+ * @param generatedAt - ISO timestamp indicating when the data was generated
+ * @returns TypeScript module content as a string
+ */
 function buildCanonicalMarkersModule(
   markers: Array<{
     tz: string;
@@ -252,6 +263,11 @@ export const CANONICAL_MARKERS: MarkerEntry[] = ${JSON.stringify(markers, null, 
 `;
 }
 
+/**
+ * Formats an offset in minutes to an ISO-style UTC offset key (e.g., "UTC+05:30").
+ * @param minutes - Offset in minutes from UTC (positive or negative)
+ * @returns Formatted UTC offset string (e.g., "UTC+05:30", "UTC-08:00")
+ */
 function formatOffsetMinutesToIsoKey(minutes: number): string {
   const sign = minutes >= 0 ? "+" : "-";
   const absoluteMinutes = Math.abs(minutes);
@@ -260,6 +276,15 @@ function formatOffsetMinutesToIsoKey(minutes: number): string {
   return `UTC${sign}${hours}:${remainingMinutes}`;
 }
 
+/**
+ * Converts an IANA timezone identifier to its corresponding ETC/GMT offset string.
+ * This uses the Intl API to determine the timezone's offset at a given date, accounting
+ * for daylight saving time based on the hemisphere (summer for northern hemisphere,
+ * winter for southern hemisphere).
+ * @param iana - The IANA timezone identifier (e.g., "America/New_York", "Asia/Tokyo")
+ * @returns The ETC/GMT format offset string (e.g., "UTC-05:00", "UTC+09:00")
+ * @throws Error if the timezone cannot be resolved or the offset cannot be determined
+ */
 function ianaToEtcForGeneration(iana: string): string {
   if (!iana || typeof iana !== "string") {
     throw new Error(`ianaToEtc: invalid timezone '${String(iana)}'`);
@@ -301,6 +326,14 @@ function ianaToEtcForGeneration(iana: string): string {
   }
 }
 
+/**
+ * Extracts the UTC offset key from an ETC/GMT timezone zone string.
+ * Supports various formats including "Etc/GMT±N", "GMT±N", and "UTC" variants.
+ * Note: ETC/GMT signs are inverted (ETC GMT+5 means UTC-5).
+ * @param etcZone - The ETC/GMT zone string (e.g., "Etc/GMT+5", "GMT-8", "UTC")
+ * @returns The standardized UTC offset key (e.g., "UTC-05:00", "UTC+08:00")
+ * @throws Error if the zone format is not supported
+ */
 function offsetKeyFromEtcForGeneration(etcZone: string): string {
   if (!etcZone || typeof etcZone !== "string") {
     throw new Error(`offsetKeyFromEtc: invalid etcZone '${String(etcZone)}'`);
@@ -386,14 +419,32 @@ const ETCGMT_OFFSET_SOURCE: "iana-only" | "natural-earth" | "merge" = "merge";
 // const ETCGMT_OFFSET_SOURCE: "iana-only" | "natural-earth" | "merge" = "merge";
 // ── Yauzl type definitions (yauzl doesn't have TypeScript types) ──
 
+/**
+ * Represents a single entry (file) within a ZIP archive.
+ */
 interface YauzlEntry {
+  /** Name of the file in the archive */
   fileName: string;
 }
 
+/**
+ * Represents an opened ZIP file with event-based reading capabilities.
+ * Provides streaming access to individual file entries within the archive.
+ */
 interface YauzlZipFile {
+  /**
+   * Registers a listener for the "entry" event, fired for each file in the archive.
+   * @param event - Event name ("entry", "end", or "error")
+   * @param listener - Callback function for the event
+   */
   on(event: "entry", listener: (entry: YauzlEntry) => void): void;
   on(event: "end", listener: () => void): void;
   on(event: "error", listener: (err: Error) => void): void;
+  /**
+   * Opens a read stream for a specific entry in the ZIP file.
+   * @param entry - The ZIP entry to read
+   * @param callback - Callback with error or read stream
+   */
   openReadStream(
     entry: YauzlEntry,
     callback: (
@@ -403,7 +454,16 @@ interface YauzlZipFile {
   ): void;
 }
 
+/**
+ * Interface for the yauzl ZIP file library.
+ * Provides methods to open and read ZIP archives from buffers.
+ */
 interface Yauzl {
+  /**
+   * Opens a ZIP file from a buffer.
+   * @param buffer - The ZIP file data as a Buffer
+   * @param callback - Callback with error or opened ZIP file
+   */
   fromBuffer(
     buffer: Buffer,
     callback: (err: Error | undefined, zipFile: YauzlZipFile) => void,
@@ -523,8 +583,11 @@ async function downloadAndUnzipGeoJson(
 }
 
 /**
- * Download a regular GeoJSON file (not zipped)
- * Uses caching to avoid re-downloading
+ * Downloads a regular (non-zipped) GeoJSON file from the specified URL.
+ * Uses local file caching to avoid redundant downloads on subsequent runs.
+ * @param url - The URL of the GeoJSON file to download
+ * @returns A Promise resolving to the parsed GeoJSON FeatureCollection
+ * @throws Error if the download fails or the JSON cannot be parsed
  */
 async function downloadFile(url: string): Promise<FeatureCollection> {
   // Check cache first
@@ -558,7 +621,12 @@ async function downloadFile(url: string): Promise<FeatureCollection> {
 }
 
 /**
- * Simplify topology while preserving shared borders.
+ * Simplifies a TopoJSON topology while preserving shared borders between features.
+ * Uses quantile-based simplification to reduce vertex count while maintaining
+ * visual fidelity. The quantile parameter controls the aggressiveness of simplification.
+ * @param topology - The TopoJSON topology to simplify
+ * @param quantileVal - The quantile threshold for simplification (default: 0.05). Lower values preserve more detail.
+ * @returns A simplified TopoJSON topology
  */
 function simplifyTopology(topology: Topology, quantileVal = 0.05): Topology {
   // The topojson-simplify library expects Objects<object> but we have Objects<GeoJsonProperties>
@@ -572,7 +640,12 @@ function simplifyTopology(topology: Topology, quantileVal = 0.05): Topology {
 }
 
 /**
- * Process timezone features - normalize IDs and reduce properties
+ * Processes timezone GeoJSON features by normalizing their IDs and reducing properties.
+ * Extracts the timezone identifier from different source formats and standardizes
+ * the properties for consistent usage across IANA and ETC/GMT sources.
+ * @param features - Array of GeoJSON features to process
+ * @param source - The source type: "iana" for IANA timezone-boundary-builder data, "etcgmt" for Natural Earth data
+ * @returns Processed array of features with normalized properties
  */
 function processTimezoneFeatures(
   features: Feature<Geometry, GeoJsonProperties>[],
@@ -607,10 +680,12 @@ function processTimezoneFeatures(
 }
 
 /**
- * Normalize geometry for a feature in-place.
- * - Ensure polygon rings are closed
- * - If area is abnormally large (sign of inverted winding or malformed geometry),
- *   reverse ring orders for Polygon/MultiPolygon parts
+ * Normalizes geometry for a GeoJSON feature in-place.
+ * Ensures polygon rings are properly closed (first point equals last point)
+ * and detects abnormally large areas that indicate inverted winding order.
+ * If detected, reverses the ring order to correct the geometry.
+ * @param feature - The GeoJSON feature with geometry to normalize
+ * @returns The same feature with normalized geometry (modified in-place)
  */
 function normalizeFeatureGeo(
   feature: Feature<Geometry, GeoJsonProperties> | { geometry?: Geometry },
@@ -659,8 +734,59 @@ function normalizeFeatureGeo(
   return feature;
 }
 
-// ── Main ──────────────────────────────────────────────────────────
+/**
+ * Rounds coordinates in a GeoJSON feature to reduce precision and file size.
+ * Uses 3 decimal places (~111m precision at equator) which is sufficient for
+ * globe-level display while significantly reducing file size.
+ * @param feature - The GeoJSON feature to round
+ * @param decimals - Number of decimal places (default: 3)
+ */
+function roundFeatureCoordinates(
+  feature: Feature<Geometry, GeoJsonProperties>,
+  decimals = 3,
+): void {
+  const factor = Math.pow(10, decimals);
+  const roundCoord = (coord: number | undefined): number =>
+    coord !== undefined ? Math.round(coord * factor) / factor : 0;
 
+  const geom = feature.geometry;
+  if (!geom) return;
+
+  if (geom.type === "Polygon") {
+    geom.coordinates = geom.coordinates.map((ring) =>
+      ring.map((pos) => [roundCoord(pos[0]), roundCoord(pos[1])] as Position),
+    );
+  } else if (geom.type === "MultiPolygon") {
+    geom.coordinates = geom.coordinates.map((poly) =>
+      poly.map((ring) =>
+        ring.map((pos) => [roundCoord(pos[0]), roundCoord(pos[1])] as Position),
+      ),
+    );
+  }
+}
+
+/**
+ * Main function that generates all globe data artifacts for the timezone globe picker.
+ * This is the primary entry point that:
+ * 1. Loads world country boundaries from visionscarto-world-atlas
+ * 2. Downloads IANA timezone boundaries from timezone-boundary-builder
+ * 3. Downloads ETC/GMT timezone polygons from Natural Earth
+ * 4. Downloads geographic lines (International Date Line) from Natural Earth
+ * 5. Processes and normalizes all timezone features
+ * 6. Creates combined TopoJSON and simplifies it
+ * 7. Generates runtime artifacts:
+ *    - Country boundaries (globe-countries.json)
+ *    - IANA timezone geometries (iana-timezones/*.json)
+ *    - ETC/GMT offset geometries (etcgmt-offset-geometries/*.json)
+ *    - IANA data module (iana-data.ts)
+ *    - Canonical markers (canonical-markers.ts)
+ *    - IANA to offset mapping (etcgmt-iana-to-offset.json)
+ *    - Geographic IDL data (geographic-idl.json)
+ *
+ * Uses caching for downloaded files to speed up subsequent runs.
+ * @returns Promise that resolves when all data has been generated
+ * @throws Error if any step in the generation process fails
+ */
 export async function generateGlobeData(): Promise<void> {
   console.log("🌍 Generating split globe artifacts...\n");
   console.log(
@@ -719,20 +845,6 @@ export async function generateGlobeData(): Promise<void> {
     console.log(
       `  Parsed ${geographicLinesGeo.features.length} geographic-lines features`,
     );
-
-    // Persist raw geographic-lines to scripts/tmp for inspection
-    try {
-      const tmpDir = path.join(process.cwd(), "scripts", "tmp");
-      if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
-      const rawPath = path.join(tmpDir, "geographic-lines-110m.geojson");
-      fs.writeFileSync(rawPath, JSON.stringify(geographicLinesGeo, null, 2));
-      console.log(`  ✅ Persisted geographic-lines to ${rawPath}`);
-    } catch (e) {
-      console.warn(
-        "  ⚠️  Failed to persist geographic-lines for inspection:",
-        e,
-      );
-    }
 
     // Identify International Date Line feature(s) in the geographic-lines file.
     // Heuristic: match on name, featurecla, or any property containing 'date'+'line'.
@@ -799,10 +911,11 @@ export async function generateGlobeData(): Promise<void> {
     });
 
     // 6. Simplify
-    // Reduce simplification aggressiveness to preserve finer IANA boundary detail.
-    // Lower quantile leads to less simplification; 0.04 preserves more vertices.
-    console.log("  Simplifying topology (quantile=0.04)...");
-    const simplified = simplifyTopology(combinedTopology, 0.04);
+    // Increase simplification to reduce file size.
+    // Quantile 0.1 provides good balance between size and visual quality.
+    // For globe display, minor vertex reduction is not noticeable.
+    console.log("  Simplifying topology (quantile=0.1)...");
+    const simplified = simplifyTopology(combinedTopology, 0.1);
 
     // Extract simplified IANA features for use in offset geometries
     // (The detailed IANA features are too large to serialize to JSON)
@@ -900,7 +1013,11 @@ export async function generateGlobeData(): Promise<void> {
         continue;
       }
 
-      fs.writeFileSync(featurePath, JSON.stringify(featureCollection, null, 2));
+      // Round coordinates and use compact JSON for smaller files
+      for (const feature of featureCollection.features) {
+        roundFeatureCoordinates(feature);
+      }
+      fs.writeFileSync(featurePath, JSON.stringify(featureCollection));
     }
 
     const ianaLoaderModulePath = path.join(
@@ -1141,8 +1258,13 @@ export type IanaTzRegion = typeof IANA_TZ_DATA[number]
     for (const offsetKey of sortedOffsetKeys) {
       const fileStem = offsetKeyToFileStem(offsetKey);
       const featureCollection = etcObj[offsetKey];
+      if (!featureCollection) continue;
       const featurePath = path.join(ETCGMT_OUTPUT_DIR, `${fileStem}.json`);
-      fs.writeFileSync(featurePath, JSON.stringify(featureCollection, null, 2));
+      // Round coordinates and use compact JSON for smaller files
+      for (const feature of featureCollection.features) {
+        roundFeatureCoordinates(feature);
+      }
+      fs.writeFileSync(featurePath, JSON.stringify(featureCollection));
     }
 
     const etcGeomLoaderPath = path.join(ETCGMT_OUTPUT_DIR, "index.ts");
@@ -1197,10 +1319,13 @@ export type IanaTzRegion = typeof IANA_TZ_DATA[number]
   }
 }
 
-// If this script is executed directly, run the generator.
-// Robust entry detection when executed via `tsx` or node. If the process argv
-// includes the script filename, treat this as the main entry and run the
-// generator. This keeps `generateGlobeData` importable for programmatic use.
+/**
+ * Entry point: If this script is executed directly (vs imported as a module),
+ * run the globe data generator. Uses robust detection to identify when the
+ * script is invoked as the main module via `tsx`, `node`, or similar runners.
+ * This pattern allows `generateGlobeData` to be imported programmatically
+ * while also supporting direct execution via `pnpm run gen:globe`.
+ */
 const invokedAsScript = process.argv.some(
   (a) =>
     a.endsWith("update-globe-data.ts") || a.endsWith("update-globe-data.js"),
