@@ -23,9 +23,7 @@
     }
   },
   "files": [
-    "dist",
-    "scripts",
-    "src"
+    "dist"
   ],
   "scripts": {
     "lint": "eslint .",
