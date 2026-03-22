@@ -3,7 +3,6 @@ import { format, parseISO } from "date-fns";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import {
   SpaceBackground,
-  ResetButton,
   TZ_BOUNDARY_MODES,
   type TzBoundaryMode,
   type GlobePalette,
@@ -209,6 +208,20 @@ export function ControlPanel({
               }}
             >
               <div style={{ fontWeight: 600 }}>Basic</div>
+              <button
+                onClick={onReset}
+                style={{
+                  background: "none",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  color: "#e0e0e0",
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  fontSize: "0.8rem",
+                }}
+              >
+                Reset Demo
+              </button>
             </div>
 
             <div
@@ -659,8 +672,6 @@ export function ControlPanel({
             </button>
           </div>
 
-          {/* Actions */}
-          <ResetButton size={40} onClick={onReset} />
         </div>
       </aside>
     </>

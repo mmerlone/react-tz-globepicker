@@ -6,6 +6,7 @@ import {
   TZ_BOUNDARY_MODES,
   type TzGlobePickerProps,
   type GlobePalette,
+  type TzGlobePickerRef,
 } from "react-tz-globepicker";
 import CustomBackground from "./components/CustomBackground";
 
@@ -49,6 +50,7 @@ const DEFAULT_OPTIONS: TzGlobePickerProps = {
 };
 
 function App(): React.ReactElement {
+  const globeRef = React.useRef<TzGlobePickerRef>(null);
   const [shouldMountControlPanel, setShouldMountControlPanel] = useState(false);
 
   // Form state
@@ -152,14 +154,23 @@ function App(): React.ReactElement {
     setMinZoom(DEFAULT_OPTIONS.minZoom ?? 0.1);
     setMaxZoom(DEFAULT_OPTIONS.maxZoom ?? 10);
     setInitialZoom(DEFAULT_OPTIONS.initialZoom ?? 0.8);
-    setCurrentZoom(DEFAULT_OPTIONS.initialZoom ?? 0.8);
     setShowTZBoundaries(
       DEFAULT_OPTIONS.showTZBoundaries ?? TZ_BOUNDARY_MODES.ETCGMT,
     );
     setShowCountryBorders(DEFAULT_OPTIONS.showCountryBorders ?? true);
     setBackgroundType("transparent");
     setBackgroundValue(null);
-    setColors((DEFAULT_OPTIONS.colors as GlobePalette) ?? CUSTOM_COLORS);
+    setColors({ ...CUSTOM_COLORS, ...DEFAULT_OPTIONS.colors });
+
+    const targetTz = DEFAULT_OPTIONS.timezone;
+    const globe = globeRef.current;
+
+    // Call the animated flyTo handle exposed by TzGlobePicker
+    if (targetTz && globe) {
+      globe.flyTo(targetTz, true);
+    } else if (globe) {
+      globe.reset();
+    }
   };
 
   return (
@@ -196,6 +207,7 @@ function App(): React.ReactElement {
             </h1>
 
             <TzGlobePicker
+              ref={globeRef}
               timezone={timezone}
               size={size}
               onSelect={(tz: string | null) => setTimezone(tz)}
