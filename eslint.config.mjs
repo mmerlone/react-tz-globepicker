@@ -138,13 +138,7 @@ export default [
       ],
 
       // Code style
-      "@typescript-eslint/explicit-function-return-type": [
-        "error",
-        {
-          allowExpressions: false,
-          allowTypedFunctionExpressions: true,
-        },
-      ],
+      "@typescript-eslint/explicit-function-return-type": "error",
       "@typescript-eslint/consistent-type-imports": [
         "error",
         {
