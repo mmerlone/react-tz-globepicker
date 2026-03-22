@@ -1196,39 +1196,17 @@ export type IanaTzRegion = typeof IANA_TZ_DATA[number]
         addToOffsetMap(f, isoKey);
       }
     }
-    // Option 3: "merge" - Merge both Natural Earth and IANA data
+    // Option 3: "merge" - Use Natural Earth data only (simplified outer boundaries)
+    // This drastically reduces file sizes by skipping internal IANA boundaries
     else if (ETCGMT_OFFSET_SOURCE === "merge") {
-      console.log("  Merging Natural Earth + IANA data...");
+      console.log(
+        "  Using Natural Earth data only (simplified outer boundaries)...",
+      );
 
-      // First add IANA timezones
-      for (const f of simplifiedIanaFc.features) {
-        const tzid = (f.properties?.tzid as string) ?? "";
-        if (!tzid) continue;
-
-        try {
-          const isoKey = ianaToEtcForGeneration(tzid);
-          addToOffsetMap(f, isoKey);
-        } catch (e) {
-          skippedEtcFeatures++;
-        }
-      }
-
-      // Then add Natural Earth timezones (skipping duplicates by tzid)
-      const addedTzids = new Set<string>();
-      for (const [, fc] of etcMap.entries()) {
-        for (const f of fc.features) {
-          const tzid = f.properties?.tzid as string | undefined;
-          if (tzid) addedTzids.add(tzid);
-        }
-      }
-
+      // Use only Natural Earth features - they already have simplified outer boundaries
       for (const f of processedEtcgmtFeatures) {
         const tzid = (f.properties?.tzid as string) ?? "";
         if (!tzid) continue;
-
-        // Do not skip Natural Earth features even if a tzid was already added from IANA.
-        // Include Natural Earth polygons (often larger / oceanic) so merged ETCGMT
-        // offset geometries contain ocean areas as expected.
 
         let isoKey: string | null = null;
         try {
@@ -1244,7 +1222,6 @@ export type IanaTzRegion = typeof IANA_TZ_DATA[number]
 
         if (isoKey) {
           addToOffsetMap(f, isoKey);
-          addedTzids.add(tzid);
         }
       }
     }
