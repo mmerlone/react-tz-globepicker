@@ -23,9 +23,7 @@ interface UseGlobeInteractionsProps {
   /** Reference to the canvas 2D rendering context */
   ctxRef: React.RefObject<CanvasRenderingContext2D | null>;
   /** Reference to the render function */
-  renderRef: React.RefObject<
-    ((projection: GeoProjection, ctx: CanvasRenderingContext2D) => void) | null
-  >;
+  renderRef: React.RefObject<(() => void) | null>;
   /** Array of active timezone markers */
   activeMarkers: MarkerEntry[];
   /** Whether markers should be shown */
@@ -94,7 +92,6 @@ export function useGlobeInteractions({
     renderFrameRef,
     cursorStyle,
     setCursorStyle,
-    flyTo,
     startDrag,
     updateDrag,
     endDrag,
@@ -118,8 +115,14 @@ export function useGlobeInteractions({
         const ctx = ctxRef.current;
         if (!canvas || !projection || !ctx) return;
 
-        // Don't do hit-test during active drag or when markers are hidden
-        if (dragStateRef.current || !effectiveShowMarkers) return;
+        // Don't do hit-test during active drag, animation or when markers are hidden
+        if (
+          dragStateRef.current ||
+          globe.isAnimatingRef.current ||
+          !effectiveShowMarkers
+        ) {
+          return;
+        }
 
         const rect = canvas.getBoundingClientRect();
         const canvasX = event.clientX - rect.left;
@@ -153,7 +156,7 @@ export function useGlobeInteractions({
 
           // Re-render to update marker highlight
           if (renderRef.current) {
-            renderRef.current(projection, ctx);
+            renderRef.current();
           }
         } else if (hitResult.timezone && showTooltips) {
           // Update tooltip position while hovering same marker
@@ -188,17 +191,15 @@ export function useGlobeInteractions({
    * Mouse leave handler to clear hover state and hide tooltip
    */
   const handleMouseLeave = useCallback((): void => {
-    const projection = projectionRef.current;
-    const ctx = ctxRef.current;
     if (hoveredTzRef.current) {
       hoveredTzRef.current = null;
       setCursorStyle("grab");
       setTooltip({ timezone: null, position: { x: 0, y: 0 } });
-      if (projection && ctx && renderRef.current) {
-        renderRef.current(projection, ctx);
+      if (renderRef.current) {
+        renderRef.current();
       }
     }
-  }, [hoveredTzRef, setCursorStyle, projectionRef, ctxRef, renderRef]);
+  }, [hoveredTzRef, setCursorStyle, renderRef]);
 
   /**
    * Setup drag and wheel interactions using D3 drag behavior
@@ -288,16 +289,12 @@ export function useGlobeInteractions({
       .on("drag", (event: D3DragEvent<HTMLCanvasElement, unknown, unknown>) => {
         updateDrag(event.x, event.y, event.dx, event.dy);
 
-        const proj = projectionRef.current;
-        const ctx = ctxRef.current;
-        if (!proj || !ctx) return;
-
         if (renderFrameRef.current) {
           cancelAnimationFrame(renderFrameRef.current);
         }
         renderFrameRef.current = requestAnimationFrame(() => {
           if (renderRef.current) {
-            renderRef.current(proj, ctx);
+            renderRef.current();
           }
         });
       })
@@ -323,19 +320,12 @@ export function useGlobeInteractions({
 
             if (hitResult.timezone) {
               onSelectRef.current?.(hitResult.timezone);
-              flyTo(hitResult.timezone);
               return;
             }
           }
         }
 
-        if (projectionRef.current && ctxRef.current && renderRef.current) {
-          applyInertia(
-            projectionRef.current,
-            ctxRef.current,
-            renderRef.current,
-          );
-        }
+        applyInertia();
       });
 
     canvasSelection.call(dragBehaviorTyped);
@@ -358,15 +348,7 @@ export function useGlobeInteractions({
         }
         event.preventDefault();
 
-        if (!projectionRef.current || !ctxRef.current || !renderRef.current) {
-          return;
-        }
-        handleWheel(
-          event.deltaY,
-          projectionRef.current,
-          ctxRef.current,
-          renderRef.current,
-        );
+        handleWheel(event.deltaY);
       } catch (error) {
         logger.error({ error, deltaY: event.deltaY }, "Error in wheel handler");
       }
@@ -401,7 +383,6 @@ export function useGlobeInteractions({
     updateDrag,
     endDrag,
     applyInertia,
-    flyTo,
     inertiaFrameRef,
     flyToFrameRef,
     renderFrameRef,

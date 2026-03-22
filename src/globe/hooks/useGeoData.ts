@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { FeatureCollection } from "geojson";
 import { buildLogger } from "../../logger/client";
 import {
@@ -6,8 +6,6 @@ import {
   TZ_BOUNDARY_MODES,
   type TzBoundaryMode,
 } from "../types/globe.types";
-import { ETCGMT_OFFSET_KEYS } from "../../data/etcgmt-offset-geometries";
-import { COMMON_TIMEZONES } from "../../constants";
 
 interface UseGeoDataOptions {
   /**
@@ -322,68 +320,6 @@ export function useGeoData(options?: UseGeoDataOptions): {
     needsIanaTimezones,
     timezone,
   ]);
-
-  // Pre-load timezone boundary data after initial render to speed up zone selection.
-  // This runs independently of the main loading effect and populates the geometry cache.
-  // Track promises to allow cleanup on unmount.
-  const preLoadPromisesRef = useRef<Promise<unknown>[]>([]);
-
-  useEffect(() => {
-    // Pre-load all ETC/GMT offset geometries for ETCGMT mode (only 38 offsets).
-    // This makes zone selection nearly instant after initial load.
-    if (boundaryMode === TZ_BOUNDARY_MODES.ETCGMT) {
-      ETCGMT_OFFSET_KEYS.forEach((offsetKey) => {
-        if (!etcgmtGeometryPromiseCache.has(offsetKey)) {
-          // Track promise for cleanup
-          const promise = loadEtcgmtGeometryForOffset(offsetKey)
-            .catch((e) => {
-              logger.warn(
-                { err: e, offsetKey },
-                "Failed to pre-load ETC/GMT offset geometry",
-              );
-            })
-            .then(() => {
-              // Remove from tracked promises once resolved
-              preLoadPromisesRef.current = preLoadPromisesRef.current.filter(
-                (p) => p !== promise,
-              );
-            });
-          preLoadPromisesRef.current.push(promise);
-        }
-      });
-    }
-
-    // Pre-load common IANA timezones for IANA mode to speed up frequent zone selections.
-    // We only pre-load a curated set of popular timezones to avoid loading all 400+ zones.
-    if (boundaryMode === TZ_BOUNDARY_MODES.IANA) {
-      COMMON_TIMEZONES.forEach((tz) => {
-        if (!ianaTimezonePromiseCache.has(tz)) {
-          // Track promise for cleanup
-          const promise = loadIanaGeometryForTimezone(tz)
-            .catch((e) => {
-              logger.warn(
-                { err: e, timezone: tz },
-                "Failed to pre-load IANA timezone geometry",
-              );
-            })
-            .then(() => {
-              // Remove from tracked promises once resolved
-              preLoadPromisesRef.current = preLoadPromisesRef.current.filter(
-                (p) => p !== promise,
-              );
-            });
-          preLoadPromisesRef.current.push(promise);
-        }
-      });
-    }
-
-    // Cleanup: wait for any in-flight pre-load promises on unmount
-    return (): void => {
-      // We don't cancel the requests (they're fire-and-forget for caching)
-      // but we clear the ref to prevent memory leaks
-      preLoadPromisesRef.current = [];
-    };
-  }, [boundaryMode, logger]);
 
   return { geoData, isLoading, error };
 }

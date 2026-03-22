@@ -102,101 +102,111 @@ export function useGlobeSystem({
   const { zoomRef, baseScaleRef } = globe;
 
   // ── Core Render Function ───────────────────────────────────────────────
-  const render = useCallback(
-    (projection: GeoProjection, ctx: CanvasRenderingContext2D): void => {
-      if (!geoData) return;
+  const render = useCallback((): void => {
+    const projection = projectionRef.current;
+    const ctx = ctxRef.current;
+    if (!projection || !ctx || !geoData) return;
 
-      const dpr = typeof window !== "undefined" ? window.devicePixelRatio : 1;
+    const dpr = typeof window !== "undefined" ? window.devicePixelRatio : 1;
 
-      // Clear the entire backing store (device pixels)
-      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    // Clear the entire backing store (device pixels)
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-      ctx.save();
-      ctx.scale(dpr, dpr);
+    ctx.save();
+    ctx.scale(dpr, dpr);
 
-      // 1. Base layers (ocean, land, graticule, night shadow, country borders, geographic lines)
-      renderBaseLayers({
-        projection,
-        ctx,
-        canvas: ctx.canvas,
-        geoData,
-        colors,
-        cachedNightRef,
-        showCountryBorders,
-        showGeographic,
-        webglRenderer: webglRendererRef,
-        simulatedDate,
-      });
-
-      // 2. Timezone boundaries
-      if (showTZBoundaries !== TZ_BOUNDARY_MODES.NONE) {
-        renderBoundaries({
-          projection,
-          ctx,
-          timezone: timezone ?? null,
-          showTZBoundaries,
-          colors,
-          highlightedData,
-        });
-      }
-
-      // 3. Markers
-
-      if (effectiveShowMarkers) {
-        // Prefer build-time mapping when available to avoid runtime Intl calls.
-        const selectedEtc: string | null =
-          geoData?.etcgmtIanaToOffset?.[timezone as string] ?? null;
-        renderMarkers({
-          projection,
-          ctx,
-          activeMarkers,
-          selectedTimezone: timezone ?? null,
-          selectedEtcOffsetKey: selectedEtc,
-          hoveredTimezone: tooltipTimezone,
-          colors,
-          size,
-          zoom: zoomRef.current,
-          zoomMarkers,
-        });
-      }
-
-      // 4. Atmosphere (outer rim)
-      renderAtmosphere({
-        projection,
-        ctx,
-        colors,
-      });
-
-      ctx.restore();
-    },
-    [
+    // 1. Base layers (ocean, land, graticule, night shadow, country borders, geographic lines)
+    renderBaseLayers({
+      projection,
+      ctx,
+      canvas: ctx.canvas,
       geoData,
       colors,
+      cachedNightRef,
       showCountryBorders,
       showGeographic,
-      timezone,
-      showTZBoundaries,
-      highlightedData,
-      activeMarkers,
-      tooltipTimezone,
-      effectiveShowMarkers,
-      size,
-      zoomRef,
-      zoomMarkers,
-      baseScaleRef,
+      webglRenderer: webglRendererRef,
       simulatedDate,
-    ],
-  );
+    });
+
+    // 2. Timezone boundaries
+    if (showTZBoundaries !== TZ_BOUNDARY_MODES.NONE) {
+      renderBoundaries({
+        projection,
+        ctx,
+        timezone: timezone ?? null,
+        showTZBoundaries,
+        colors,
+        highlightedData,
+      });
+    }
+
+    // 3. Markers
+
+    if (effectiveShowMarkers) {
+      // Prefer build-time mapping when available to avoid runtime Intl calls.
+      const selectedEtc: string | null =
+        geoData?.etcgmtIanaToOffset?.[timezone as string] ?? null;
+      renderMarkers({
+        projection,
+        ctx,
+        activeMarkers,
+        selectedTimezone: timezone ?? null,
+        selectedEtcOffsetKey: selectedEtc,
+        hoveredTimezone: tooltipTimezone,
+        colors,
+        size,
+        zoom: zoomRef.current,
+        zoomMarkers,
+      });
+    }
+
+    // 4. Atmosphere (outer rim)
+    renderAtmosphere({
+      projection,
+      ctx,
+      colors,
+    });
+
+    ctx.restore();
+  }, [
+    geoData,
+    colors,
+    showCountryBorders,
+    showGeographic,
+    timezone,
+    showTZBoundaries,
+    highlightedData,
+    activeMarkers,
+    tooltipTimezone,
+    effectiveShowMarkers,
+    size,
+    zoomRef,
+    zoomMarkers,
+    baseScaleRef,
+    simulatedDate,
+  ]);
 
   // ── Render Reference Management ───────────────────────────────────────────
   useEffect(() => {
     renderRef.current = render;
 
-    // Trigger a render when colors change
+    // Trigger a render when dependencies change, UNLESS an animation/interaction loop is already owning the render sequence.
     if (geoData && projectionRef.current && ctxRef.current) {
-      renderRef.current(projectionRef.current, ctxRef.current);
+      if (
+        !globe.isAnimatingRef.current &&
+        !globe.dragStateRef.current &&
+        !globe.inertiaFrameRef.current
+      ) {
+        if (globe.renderFrameRef.current) {
+          cancelAnimationFrame(globe.renderFrameRef.current);
+        }
+        globe.renderFrameRef.current = requestAnimationFrame(() => {
+          renderRef.current();
+        });
+      }
     }
-  }, [render, geoData, projectionRef, ctxRef]);
+  }, [render, geoData, globe]);
 
   // ── Canvas & Projection Initialization ─────────────────────────────────────
   useEffect(() => {
@@ -260,67 +270,36 @@ export function useGlobeSystem({
     };
   }, [size, hasGeoData]);
 
-  // ── Initial Render Trigger ───────────────────────────────────────────────
-  useEffect(() => {
-    if (geoData && projectionRef.current && ctxRef.current) {
-      renderRef.current(projectionRef.current, ctxRef.current);
-    }
-  }, [size, timezone, geoData, highlightedData]);
-
-  // ── Re-render when marker visibility or marker set changes
-  // Ensures toggling `showMarkers` immediately updates the canvas.
-  useEffect(() => {
-    if (geoData && projectionRef.current && ctxRef.current) {
-      renderRef.current(projectionRef.current, ctxRef.current);
-    }
-  }, [effectiveShowMarkers, activeMarkers]);
-
-  // Re-render when zoom marker scaling changes so marker sizes update live
-  useEffect(() => {
-    if (geoData && projectionRef.current && ctxRef.current) {
-      renderRef.current(projectionRef.current, ctxRef.current);
-    }
-  }, [zoomMarkers]);
-
-  // Re-render when country borders visibility changes so the border
-  // stroke is drawn/removed immediately when toggled.
-  useEffect(() => {
-    if (geoData && projectionRef.current && ctxRef.current) {
-      renderRef.current(projectionRef.current, ctxRef.current);
-    }
-  }, [showCountryBorders]);
-
-  // Re-render when geographic lines visibility changes so the lines
-  // are drawn/removed immediately when toggled.
-  useEffect(() => {
-    if (geoData && projectionRef.current && ctxRef.current) {
-      renderRef.current(projectionRef.current, ctxRef.current);
-    }
-  }, [showGeographic]);
-
-  // Re-render when simulatedDate changes so the penumbra position
-  // immediately reflects the new sun position (solstices, time changes, etc.).
-  useEffect(() => {
-    if (geoData && projectionRef.current && ctxRef.current) {
-      renderRef.current(projectionRef.current, ctxRef.current);
-    }
-  }, [simulatedDate]);
-
-  // ── Data Change Trigger ─────────────────────────────────────────────────
-  useEffect(() => {
-    if (geoData && projectionRef.current && ctxRef.current) {
-      renderRef.current(projectionRef.current, ctxRef.current);
-    }
-  }, [geoData]);
+  // Redundant synchronous render effects removed; handled by Render Reference Management effect.
 
   // ── Fly to timezone on prop change or initial data load ─────────────────
   // Triggers on page load (when geoData first arrives) and on external timezone
-  // prop changes (e.g. control panel). Marker clicks are handled separately in
-  // useGlobeInteractions but the double-flyTo is harmless (same target).
+  // prop changes (e.g. control panel or marker clicks via onSelect callback).
+  // Note: Marker clicks only call onSelect, which updates the timezone prop,
+  // and this effect handles the flyTo animation.
   const { flyTo } = globe;
   useEffect(() => {
     if (timezone && geoData && projectionRef.current && ctxRef.current) {
+      // Defer flyTo animation until the required boundary shapes are loaded into state
+      // This prevents the JS main-thread JSON parser from freezing the screen mid-spin
+      if (showTZBoundaries === TZ_BOUNDARY_MODES.ETCGMT) {
+        const requiredOffset = geoData.etcgmtIanaToOffset?.[timezone];
+        if (
+          requiredOffset &&
+          !geoData.etcgmtOffsetGeometries?.[requiredOffset]
+        ) {
+          return;
+        }
+      }
+
+      if (
+        showTZBoundaries === TZ_BOUNDARY_MODES.IANA &&
+        !geoData.ianaTimezones
+      ) {
+        return;
+      }
+
       flyTo(timezone);
     }
-  }, [timezone, geoData, flyTo]);
+  }, [timezone, geoData, flyTo, showTZBoundaries]);
 }

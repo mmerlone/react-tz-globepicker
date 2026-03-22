@@ -31,6 +31,8 @@ export interface GlobeState {
   dragStateRef: React.MutableRefObject<DragState | null>;
   hoveredTzRef: React.MutableRefObject<string | null>;
   isAnimatingRef: React.MutableRefObject<boolean>;
+  targetRotationRef: React.MutableRefObject<Rotation | null>;
+  targetZoomRef: React.MutableRefObject<number | null>;
   inertiaFrameRef: React.MutableRefObject<number>;
   flyToFrameRef: React.MutableRefObject<number>;
   renderFrameRef: React.MutableRefObject<number>;
@@ -50,17 +52,8 @@ export interface GlobeState {
     eventDy: number,
   ) => void;
   endDrag: () => { wasClick: boolean };
-  applyInertia: (
-    projection: GeoProjection,
-    ctx: CanvasRenderingContext2D,
-    renderFn: RenderFn,
-  ) => void;
-  handleWheel: (
-    deltaY: number,
-    projection: GeoProjection,
-    ctx: CanvasRenderingContext2D,
-    renderFn: RenderFn,
-  ) => void;
+  applyInertia: () => void;
+  handleWheel: (deltaY: number) => void;
   setHoveredTimezone: (tz: string | null) => void;
 }
 
@@ -120,6 +113,11 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
     onZoomChange,
   } = options;
 
+  const onZoomChangeRef = useRef(onZoomChange);
+  useEffect(() => {
+    onZoomChangeRef.current = onZoomChange;
+  }, [onZoomChange]);
+
   // Core state refs
   const rotationRef = useRef<Rotation>([0, 0, TILT]);
   const velocityRef = useRef<Coordinate>([0, 0]);
@@ -128,6 +126,8 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
   const dragStateRef = useRef<DragState | null>(null);
   const hoveredTzRef = useRef<string | null>(null);
   const isAnimatingRef = useRef<boolean>(false);
+  const targetRotationRef = useRef<Rotation | null>(null);
+  const targetZoomRef = useRef<number | null>(null);
 
   // Animation frame refs
   const inertiaFrameRef = useRef<number>(0);
@@ -163,32 +163,48 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
       renderFrameRef.current = 0;
     }
     velocityRef.current = [0, 0];
+    isAnimatingRef.current = false;
+    targetRotationRef.current = null;
+    targetZoomRef.current = null;
   }, []);
 
   // Fly to a specific timezone
   const flyTo = useCallback(
     (targetTz: string, resetZoom = false): void => {
-      cancelAnimations();
-      isAnimatingRef.current = true;
-
-      const projection = projectionRef.current;
-      const ctx = ctxRef.current;
-      if (!projection || !ctx) return;
+      if (!projectionRef.current || !ctxRef.current) return;
 
       const [lat, lng] = getTimezoneCenter(targetTz);
       const targetRotation = normalizeRotation([-lng, -lat, TILT]);
+      
+      const startZoom = zoomRef.current;
+      const targetZoom = resetZoom ? initialZoom : startZoom;
+
+      // If already animating to the exact same target, don't interrupt
+      if (
+        isAnimatingRef.current &&
+        targetRotationRef.current?.[0] === targetRotation[0] &&
+        targetRotationRef.current?.[1] === targetRotation[1] &&
+        targetRotationRef.current?.[2] === targetRotation[2]
+      ) {
+        if (!resetZoom || targetZoomRef.current === targetZoom) {
+          return;
+        }
+      }
+
+      cancelAnimations();
+      isAnimatingRef.current = true;
+      targetRotationRef.current = targetRotation;
+      targetZoomRef.current = targetZoom;
+
       const startRotation = normalizeRotation([...rotationRef.current]);
       rotationRef.current = startRotation;
-      projection.rotate(startRotation);
+      projectionRef.current?.rotate(startRotation);
 
       const dLng = shortestDelta(startRotation[0], targetRotation[0]);
       const dLat = targetRotation[1] - startRotation[1];
       const dTilt = targetRotation[2] - startRotation[2];
 
-      const startZoom = zoomRef.current;
-      const targetZoom = resetZoom ? initialZoom : startZoom;
       const dZoom = targetZoom - startZoom;
-      const baseScale = baseScaleRef.current;
 
       const startTime = performance.now();
 
@@ -206,13 +222,18 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
 
         if (dZoom !== 0) {
           zoomRef.current = startZoom + dZoom * ease;
-          projection.scale(baseScale * zoomRef.current);
-          if (onZoomChange) onZoomChange(zoomRef.current);
         }
 
-        projection.rotate(rotationRef.current);
+        const currentProjection = projectionRef.current;
+        if (currentProjection) {
+          currentProjection.rotate(rotationRef.current);
+          if (dZoom !== 0) {
+            currentProjection.scale(baseScaleRef.current * zoomRef.current);
+          }
+        }
+
         try {
-          renderRef.current(projection, ctx);
+          renderRef.current();
         } catch (err) {
           logger.error(
             { err: err as Record<string, unknown> },
@@ -227,12 +248,19 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
           rotationRef.current = targetRotation;
           if (dZoom !== 0) {
             zoomRef.current = targetZoom;
-            projection.scale(baseScale * targetZoom);
-            if (onZoomChange) onZoomChange(zoomRef.current);
+            if (onZoomChangeRef.current) onZoomChangeRef.current(zoomRef.current);
           }
-          projection.rotate(targetRotation);
+          
+          const finalProjection = projectionRef.current;
+          if (finalProjection) {
+            finalProjection.rotate(targetRotation);
+            if (dZoom !== 0) {
+              finalProjection.scale(baseScaleRef.current * targetZoom);
+            }
+          }
+
           try {
-            renderRef.current(projection, ctx);
+            renderRef.current();
           } catch (err) {
             logger.error(
               { err: err as Record<string, unknown> },
@@ -240,6 +268,8 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
             );
           }
           isAnimatingRef.current = false;
+          targetRotationRef.current = null;
+          targetZoomRef.current = null;
         }
       };
 
@@ -252,7 +282,6 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
       renderRef,
       logger,
       initialZoom,
-      onZoomChange,
     ],
   );
 
@@ -328,11 +357,7 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
 
   // Apply inertia animation
   const applyInertia = useCallback(
-    (
-      projection: GeoProjection,
-      ctx: CanvasRenderingContext2D,
-      renderFn: RenderFn,
-    ): void => {
+    (): void => {
       // Cancel any existing inertia animation
       if (inertiaFrameRef.current) {
         cancelAnimationFrame(inertiaFrameRef.current);
@@ -357,10 +382,14 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
           curTilt,
         ]);
         velocityRef.current = [vx * INERTIA_FRICTION, vy * INERTIA_FRICTION];
+        
+        const currentProjection = projectionRef.current;
+        if (currentProjection) {
+          currentProjection.rotate(rotationRef.current);
+        }
 
-        projection.rotate(rotationRef.current);
         try {
-          renderFn(projection, ctx);
+          renderRef.current();
         } catch {
           velocityRef.current = [0, 0];
           inertiaFrameRef.current = 0;
@@ -377,12 +406,7 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
 
   // Handle wheel zoom
   const handleWheel = useCallback(
-    (
-      deltaY: number,
-      projection: GeoProjection,
-      ctx: CanvasRenderingContext2D,
-      renderFn: RenderFn,
-    ): void => {
+    (deltaY: number): void => {
       cancelAnimations();
 
       const delta = -deltaY * ZOOM_SENSITIVITY;
@@ -391,16 +415,19 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
         Math.min(maxZoom, zoomRef.current * (1 + delta)),
       );
       zoomRef.current = newZoom;
-      projection.scale(baseScaleRef.current * newZoom);
-      if (onZoomChange) onZoomChange(zoomRef.current);
+      const projection = projectionRef.current;
+      if (projection) {
+        projection.scale(baseScaleRef.current * newZoom);
+      }
+      if (onZoomChangeRef.current) onZoomChangeRef.current(zoomRef.current);
       if (renderFrameRef.current) {
         cancelAnimationFrame(renderFrameRef.current);
       }
-      renderFrameRef.current = requestAnimationFrame(() =>
-        renderFn(projection, ctx),
-      );
+      renderFrameRef.current = requestAnimationFrame(() => {
+        renderRef.current();
+      });
     },
-    [cancelAnimations, minZoom, maxZoom, onZoomChange],
+    [cancelAnimations, minZoom, maxZoom, projectionRef, baseScaleRef, renderRef],
   );
 
   // Set hovered timezone
@@ -419,13 +446,13 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
       projection.scale(baseScaleRef.current * clamped);
       if (ctxRef.current) {
         try {
-          renderRef.current(projection, ctxRef.current);
+          renderRef.current();
         } catch {
           /* ignore render errors here */
         }
       }
     }
-    if (onZoomChange) onZoomChange(zoomRef.current);
+    if (onZoomChangeRef.current) onZoomChangeRef.current(zoomRef.current);
   }, [
     externalZoom,
     minZoom,
@@ -434,7 +461,6 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
     baseScaleRef,
     renderRef,
     ctxRef,
-    onZoomChange,
   ]);
 
   return {
@@ -445,6 +471,8 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
     dragStateRef,
     hoveredTzRef,
     isAnimatingRef,
+    targetRotationRef,
+    targetZoomRef,
     inertiaFrameRef,
     flyToFrameRef,
     renderFrameRef,

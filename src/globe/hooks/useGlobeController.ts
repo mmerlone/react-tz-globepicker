@@ -12,12 +12,12 @@ import {
   type TzGlobePickerProps,
   type RenderFn,
   type MarkerEntry,
-  type CachedNight,
   type GeoData,
+  type CachedNight,
   TZ_BOUNDARY_MODES,
 } from "../types/globe.types";
+import { type WebGLRendererProgram } from "../render/WebGLPenumbraRenderer";
 import { COLORS, MIN_ZOOM, MAX_ZOOM } from "../constants/globe.constants";
-import type { WebGLRendererProgram } from "../render/WebGLPenumbraRenderer";
 
 export interface GlobeControllerState {
   size: number;
@@ -32,6 +32,7 @@ export interface GlobeControllerState {
     position: { x: number; y: number };
   };
   handleReset: () => void;
+  flyTo: (timezone: string, resetZoom?: boolean) => void;
   showTooltips: boolean;
 }
 
@@ -80,6 +81,7 @@ export function useGlobeController(
   const projectionRef = useRef<GeoProjection | null>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const webglRendererRef = useRef<WebGLRendererProgram | null>(null);
+  const cachedNightRef = useRef<CachedNight>({ minute: -1, center: null });
   const renderRef = useRef<RenderFn>(() => {});
 
   // ── Data Loading & Resolution ────────────────────────────────────────
@@ -96,9 +98,6 @@ export function useGlobeController(
 
   // ── Color Configuration ─────────────────────────────────────────────
   const colors = useMemo(() => ({ ...COLORS, ...colorsProp }), [colorsProp]);
-
-  // ── Performance Optimization ───────────────────────────────────────────
-  const cachedNightRef = useRef<CachedNight>({ minute: -1, center: null });
 
   // ── Globe State Management ────────────────────────────────────────────
   const globe = useGlobeState({
@@ -208,6 +207,7 @@ export function useGlobeController(
     // UI elements state
     tooltip,
     handleReset: globe.handleReset,
+    flyTo: globe.flyTo,
     showTooltips,
   };
 }
