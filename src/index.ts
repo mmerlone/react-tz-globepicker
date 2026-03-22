@@ -15,6 +15,7 @@ export { TzGlobePicker } from "./TzGlobePicker";
 // Types
 export type {
   TzGlobePickerProps,
+  TzGlobePickerRef,
   TzBoundaryMode,
   MarkerEntry,
   Coordinate,

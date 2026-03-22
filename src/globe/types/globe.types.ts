@@ -10,7 +10,6 @@
  * coordinates between utils and renderers.
  */
 import type { FeatureCollection, Feature } from "geojson";
-import type { GeoProjection } from "d3-geo";
 import type { CSSProperties, ReactElement } from "react";
 
 /** Coordinate tuple [longitude, latitude] used throughout the component (D3/GeoJSON convention) */
@@ -43,10 +42,7 @@ export interface TzFeatureProperties {
 export type EtcGmtOffsetGeometries = Record<string, FeatureCollection>;
 
 /** Render function signature for canvas render callbacks */
-export type RenderFn = (
-  projection: GeoProjection,
-  ctx: CanvasRenderingContext2D,
-) => void;
+export type RenderFn = () => void;
 
 /** Geographic data assembled from split runtime artifacts. */
 export interface GeoData {
@@ -153,6 +149,18 @@ export const TZ_BOUNDARY_MODES = {
 /** String union of supported boundary visualization modes. */
 export type TzBoundaryMode =
   (typeof TZ_BOUNDARY_MODES)[keyof typeof TZ_BOUNDARY_MODES];
+
+/** Imperative handle for TzGlobePicker component */
+export interface TzGlobePickerRef {
+  /**
+   * Triggers an animated reset of the globe to its initial orientation and zoom.
+   */
+  reset: () => void;
+  /**
+   * Imperatively fly to a specific timezone, optionally resetting zoom.
+   */
+  flyTo: (timezone: string, resetZoom?: boolean) => void;
+}
 
 /** Props for TzGlobePicker component */
 export interface TzGlobePickerProps {

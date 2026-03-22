@@ -1,7 +1,7 @@
 "use client";
 
-import React, { isValidElement, useRef } from "react";
-import type { TzGlobePickerProps } from "./globe/types/globe.types";
+import React, { isValidElement, useRef, forwardRef, useImperativeHandle } from "react";
+import type { TzGlobePickerProps, TzGlobePickerRef } from "./globe/types/globe.types";
 import {
   GlobeTooltip,
   ResetButton,
@@ -94,8 +94,9 @@ import { useGlobeController } from "./globe/hooks";
  * @see {@link ./globe/types/globe.types.ts} for complete type definitions
  * @see {@link ./globe/constants/globe.constants.ts} for default values and configuration
  */
-export function TzGlobePicker(props: TzGlobePickerProps): React.ReactElement {
-  const containerRef = useRef<HTMLDivElement>(null);
+export const TzGlobePicker = forwardRef<TzGlobePickerRef, TzGlobePickerProps>(
+  function TzGlobePicker(props, ref): React.ReactElement {
+    const containerRef = useRef<HTMLDivElement>(null);
 
   // Orchestrate all globe logic, initialization, interactions and computed data
   const {
@@ -108,8 +109,14 @@ export function TzGlobePicker(props: TzGlobePickerProps): React.ReactElement {
     canvasRef,
     tooltip,
     handleReset,
+    flyTo,
     showTooltips,
   } = useGlobeController(props);
+
+  useImperativeHandle(ref, () => ({
+    reset: handleReset,
+    flyTo,
+  }));
 
   const { background, style: styleProp, className, simulatedDate } = props;
 
@@ -192,4 +199,4 @@ export function TzGlobePicker(props: TzGlobePickerProps): React.ReactElement {
       </div>
     </div>
   );
-}
+});
