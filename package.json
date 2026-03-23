@@ -6,7 +6,7 @@
     "demo"
   ],
   "description": "Interactive 3D globe component for timezone selection with React",
-  "homepage": "https://ywybase.vercel.app/",
+  "homepage": "https://ywybase.vercel.app/demos/react-tz-globepicker",
   "author": "Marcio Merlone <mmerlone@gmail.com> (https://mmerlone.dev.br)",
   "repository": {
     "type": "git",
