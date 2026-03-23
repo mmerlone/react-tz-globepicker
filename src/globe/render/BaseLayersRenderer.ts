@@ -38,13 +38,13 @@ interface BaseLayersRendererProps {
   /** Color palette for styling globe elements */
   colors: GlobePalette;
   /** Reference to cached night shadow data for performance optimization */
-  cachedNightRef: React.MutableRefObject<CachedNight>;
+  cachedNightRef: React.RefObject<CachedNight>;
   /** Whether to render country borders on the globe surface */
   showCountryBorders: boolean;
   /** Whether to render geographic lines (equator, tropics, polar circles, IDL) */
   showGeographic: boolean;
   /** WebGL renderer instance for penumbra */
-  webglRenderer: React.MutableRefObject<WebGLRendererProgram | null>;
+  webglRenderer: React.RefObject<WebGLRendererProgram | null>;
   /** Optional simulated date for sun position calculation */
   simulatedDate?: Date;
 }

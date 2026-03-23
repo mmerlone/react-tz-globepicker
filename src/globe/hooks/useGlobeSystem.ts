@@ -32,11 +32,11 @@ import { type buildLogger } from "../../logger/client";
 
 interface UseGlobeSystemOptions {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  projectionRef: React.MutableRefObject<GeoProjection | null>;
-  ctxRef: React.MutableRefObject<CanvasRenderingContext2D | null>;
-  webglRendererRef: React.MutableRefObject<WebGLRendererProgram | null>;
-  renderRef: React.MutableRefObject<RenderFn>;
-  cachedNightRef: React.MutableRefObject<CachedNight>;
+  projectionRef: React.RefObject<GeoProjection | null>;
+  ctxRef: React.RefObject<CanvasRenderingContext2D | null>;
+  webglRendererRef: React.RefObject<WebGLRendererProgram | null>;
+  renderRef: React.RefObject<RenderFn>;
+  cachedNightRef: React.RefObject<CachedNight>;
 
   size: number;
   hasGeoData: boolean;

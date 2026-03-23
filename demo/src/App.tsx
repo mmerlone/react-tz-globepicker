@@ -85,8 +85,7 @@ function App(): React.ReactElement {
     DEFAULT_OPTIONS.showGeographic ?? true,
   );
   type BackgroundType = "transparent" | "color" | "space" | "custom";
-  const [backgroundType, setBackgroundType] =
-    useState<BackgroundType>("transparent");
+  const [backgroundType, setBackgroundType] = useState<BackgroundType>("space");
   const [backgroundValue, setBackgroundValue] = useState<string | null>(null);
   const [colors, setColors] = useState<GlobePalette>(
     (DEFAULT_OPTIONS.colors as GlobePalette) ?? CUSTOM_COLORS,

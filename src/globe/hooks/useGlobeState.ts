@@ -24,18 +24,18 @@ import type {
 
 export interface GlobeState {
   // Refs
-  rotationRef: React.MutableRefObject<Rotation>;
-  velocityRef: React.MutableRefObject<Coordinate>;
-  zoomRef: React.MutableRefObject<number>;
-  baseScaleRef: React.MutableRefObject<number>;
-  dragStateRef: React.MutableRefObject<DragState | null>;
-  hoveredTzRef: React.MutableRefObject<string | null>;
-  isAnimatingRef: React.MutableRefObject<boolean>;
-  targetRotationRef: React.MutableRefObject<Rotation | null>;
-  targetZoomRef: React.MutableRefObject<number | null>;
-  inertiaFrameRef: React.MutableRefObject<number>;
-  flyToFrameRef: React.MutableRefObject<number>;
-  renderFrameRef: React.MutableRefObject<number>;
+  rotationRef: React.RefObject<Rotation>;
+  velocityRef: React.RefObject<Coordinate>;
+  zoomRef: React.RefObject<number>;
+  baseScaleRef: React.RefObject<number>;
+  dragStateRef: React.RefObject<DragState | null>;
+  hoveredTzRef: React.RefObject<string | null>;
+  isAnimatingRef: React.RefObject<boolean>;
+  targetRotationRef: React.RefObject<Rotation | null>;
+  targetZoomRef: React.RefObject<number | null>;
+  inertiaFrameRef: React.RefObject<number>;
+  flyToFrameRef: React.RefObject<number>;
+  renderFrameRef: React.RefObject<number>;
 
   // React state
   cursorStyle: "grab" | "pointer";
@@ -67,9 +67,9 @@ export interface GlobeState {
  */
 interface UseGlobeStateOptions {
   timezone: string | null | undefined;
-  projectionRef: React.MutableRefObject<GeoProjection | null>;
-  ctxRef: React.MutableRefObject<CanvasRenderingContext2D | null>;
-  renderRef: React.MutableRefObject<RenderFn>;
+  projectionRef: React.RefObject<GeoProjection | null>;
+  ctxRef: React.RefObject<CanvasRenderingContext2D | null>;
+  renderRef: React.RefObject<RenderFn>;
   logger: { error: (obj: Record<string, unknown>, msg: string) => void };
   minZoom?: number;
   maxZoom?: number;
@@ -175,7 +175,7 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
 
       const [lat, lng] = getTimezoneCenter(targetTz);
       const targetRotation = normalizeRotation([-lng, -lat, TILT]);
-      
+
       const startZoom = zoomRef.current;
       const targetZoom = resetZoom ? initialZoom : startZoom;
 
@@ -248,9 +248,11 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
           rotationRef.current = targetRotation;
           if (dZoom !== 0) {
             zoomRef.current = targetZoom;
-            if (onZoomChangeRef.current) onZoomChangeRef.current(zoomRef.current);
+            if (onZoomChangeRef.current) {
+              onZoomChangeRef.current(zoomRef.current);
+            }
           }
-          
+
           const finalProjection = projectionRef.current;
           if (finalProjection) {
             finalProjection.rotate(targetRotation);
@@ -275,14 +277,7 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
 
       flyToFrameRef.current = requestAnimationFrame(animate);
     },
-    [
-      cancelAnimations,
-      projectionRef,
-      ctxRef,
-      renderRef,
-      logger,
-      initialZoom,
-    ],
+    [cancelAnimations, projectionRef, ctxRef, renderRef, logger, initialZoom],
   );
 
   // Reset view to timezone center
@@ -356,53 +351,50 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
   }, []);
 
   // Apply inertia animation
-  const applyInertia = useCallback(
-    (): void => {
-      // Cancel any existing inertia animation
-      if (inertiaFrameRef.current) {
-        cancelAnimationFrame(inertiaFrameRef.current);
+  const applyInertia = useCallback((): void => {
+    // Cancel any existing inertia animation
+    if (inertiaFrameRef.current) {
+      cancelAnimationFrame(inertiaFrameRef.current);
+      inertiaFrameRef.current = 0;
+    }
+    const animate = (): void => {
+      const [vx, vy] = velocityRef.current;
+
+      if (
+        Math.abs(vx) < INERTIA_MIN_VELOCITY &&
+        Math.abs(vy) < INERTIA_MIN_VELOCITY
+      ) {
+        velocityRef.current = [0, 0];
         inertiaFrameRef.current = 0;
+        return;
       }
-      const animate = (): void => {
-        const [vx, vy] = velocityRef.current;
 
-        if (
-          Math.abs(vx) < INERTIA_MIN_VELOCITY &&
-          Math.abs(vy) < INERTIA_MIN_VELOCITY
-        ) {
-          velocityRef.current = [0, 0];
-          inertiaFrameRef.current = 0;
-          return;
-        }
+      const [curLng, curLat, curTilt] = rotationRef.current;
+      rotationRef.current = normalizeRotation([
+        curLng + vx,
+        curLat - vy,
+        curTilt,
+      ]);
+      velocityRef.current = [vx * INERTIA_FRICTION, vy * INERTIA_FRICTION];
 
-        const [curLng, curLat, curTilt] = rotationRef.current;
-        rotationRef.current = normalizeRotation([
-          curLng + vx,
-          curLat - vy,
-          curTilt,
-        ]);
-        velocityRef.current = [vx * INERTIA_FRICTION, vy * INERTIA_FRICTION];
-        
-        const currentProjection = projectionRef.current;
-        if (currentProjection) {
-          currentProjection.rotate(rotationRef.current);
-        }
+      const currentProjection = projectionRef.current;
+      if (currentProjection) {
+        currentProjection.rotate(rotationRef.current);
+      }
 
-        try {
-          renderRef.current();
-        } catch {
-          velocityRef.current = [0, 0];
-          inertiaFrameRef.current = 0;
-          return;
-        }
+      try {
+        renderRef.current();
+      } catch {
+        velocityRef.current = [0, 0];
+        inertiaFrameRef.current = 0;
+        return;
+      }
 
-        inertiaFrameRef.current = requestAnimationFrame(animate);
-      };
+      inertiaFrameRef.current = requestAnimationFrame(animate);
+    };
 
-      animate();
-    },
-    [],
-  );
+    animate();
+  }, []);
 
   // Handle wheel zoom
   const handleWheel = useCallback(
@@ -427,7 +419,14 @@ export function useGlobeState(options: UseGlobeStateOptions): GlobeState {
         renderRef.current();
       });
     },
-    [cancelAnimations, minZoom, maxZoom, projectionRef, baseScaleRef, renderRef],
+    [
+      cancelAnimations,
+      minZoom,
+      maxZoom,
+      projectionRef,
+      baseScaleRef,
+      renderRef,
+    ],
   );
 
   // Set hovered timezone
