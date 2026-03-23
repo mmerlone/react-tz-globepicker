@@ -8,6 +8,8 @@ Interactive 3D globe component for timezone selection with React.
 
 ![TZ Globe Picker Demo](tzglobepicker.png)
 
+Try the [interactive online demo →](https://ywybase.vercel.app/demos/react-tz-globepicker)
+
 ## Features
 
 - Interactive 3D globe visualization with drag-to-rotate and zoom
@@ -16,22 +18,48 @@ Interactive 3D globe component for timezone selection with React.
 - Multiple visualization modes (nautic bands, etc-gmt boundaries, iana country-level)
 - Bundled timezone data for easy setup
 
+## Timezone Boundary Modes
+
+The `showTZBoundaries` prop controls how timezone regions are visualized on the globe:
+
+### Nautic Mode (`nautic`)
+
+Displays timezone regions as 15-degree longitudinal bands based on the timezone's canonical UTC offset. This is the fastest mode to compute but provides less precise boundaries.
+
+![Nautic Mode](nautic.png)
+
+### ETC/GMT Mode (`etc-gmt`)
+
+Displays merged high-level timezone shapes based on ETC/GMT offset buckets. Each region represents all areas sharing the same UTC offset (e.g., UTC+1, UTC-5).
+
+![ETC/GMT Mode](etcgmt.png)
+
+### IANA Mode (`iana`)
+
+Displays individual country-level polygons based on IANA timezone data. This provides the most detailed and accurate boundaries.
+
+![IANA Mode](iana.png)
+
+### None Mode (`none`)
+
+Displays no timezone boundaries or highlights.
+
 ## Installation
 
 ```bash
-pnpm add react-tz-globepicker
+pnpm add @mmerlone/react-tz-globepicker
 # or
-npm install react-tz-globepicker
+npm install @mmerlone/react-tz-globepicker
 # or
-yarn add react-tz-globepicker
+yarn add @mmerlone/react-tz-globepicker
 ```
 
 ## Peer Dependencies
 
 This package requires the following peer dependencies:
 
-- `react` ^18.0.0
-- `react-dom` ^18.0.0
+- `react` ^19.0.0
+- `react-dom` ^19.0.0
 
 ## Complete Example
 
@@ -230,31 +258,37 @@ This will fetch the latest data from Natural Earth and regenerate the files in `
 | `showMarkers`        | `boolean`                                           | `false`     | Whether to render timezone markers                 |
 | `showTooltips`       | `boolean`                                           | `false`     | Whether to show hover tooltips on markers          |
 | `zoomMarkers`        | `boolean`                                           | `false`     | When true, markers scale with zoom level           |
-| `showTZBoundaries`   | `'nautic' \| 'etc-gmt' \| 'iana' \| 'none'`          | `'none'`    | Timezone boundary visualization mode               |
+| `showTZBoundaries`   | `TzBoundaryMode`                                    | `'none'`    | Timezone boundary visualization mode               |
 | `showCountryBorders` | `boolean`                                           | `false`     | Whether to render country borders                  |
+| `showGeographic`     | `boolean`                                           | `false`     | Whether to render geographic lines                 |
 | `markers`            | `MarkerEntry[]`                                     | -           | Optional explicit marker list                      |
 | `background`         | `string \| React.ReactElement \| null \| undefined` | `undefined` | Background styling (color, JSX, or transparent)    |
 | `colors`             | `Partial<GlobePalette>`                             | -           | Custom color palette override                      |
 | `minZoom`            | `number`                                            | `MIN_ZOOM`  | Minimum zoom level                                 |
 | `maxZoom`            | `number`                                            | `MAX_ZOOM`  | Maximum zoom level                                 |
 | `initialZoom`        | `number`                                            | `1`         | Initial zoom level                                 |
+| `zoom`               | `number`                                            | -           | Optional controlled zoom value                     |
+| `onZoomChange`       | `(zoom: number) => void`                            | -           | Called when zoom level changes                     |
+| `simulatedDate`      | `Date`                                              | -           | Optional date for sun position testing             |
 | `style`              | `React.CSSProperties`                               | -           | Optional inline styles for the outer container     |
 | `className`          | `string`                                            | -           | Optional CSS class name for the outer container    |
 
 ## Exported Components
 
 ```typescript
-import { TzGlobePicker, SpaceBackground } from "react-tz-globepicker";
+import { TzGlobePicker, SpaceBackground, ResetButton } from "react-tz-globepicker";
 ```
 
 - `TzGlobePicker`: Main interactive globe component
 - `SpaceBackground`: Optional starfield-style background component
+- `ResetButton`: Reset view button component (used internally, exposed for custom implementations)
 
 ## Exported Types
 
 ```typescript
 import type {
   TzGlobePickerProps,
+  TzGlobePickerRef,
   TzBoundaryMode,
   GlobeState,
   MarkerEntry,
@@ -263,6 +297,7 @@ import type {
   Rotation,
   GeoData,
   RenderFn,
+  GlobePalette,
 } from "react-tz-globepicker";
 ```
 
@@ -299,9 +334,14 @@ import {
   getUtcOffsetHour,
   buildMarkerList,
   CANONICAL_MARKERS,
+  getCanonicalMarkers,
   TIMEZONE_COORDINATES,
   mapToCanonicalTz,
   utcOffsetToLongitude,
+  ianaToEtc,
+  etcToOffset,
+  offsetKeyFromEtc,
+  IANA_TZ_DATA,
   useGlobeState,
 } from "react-tz-globepicker";
 ```
@@ -328,6 +368,20 @@ const timezoneObjects = [
   { value: "Europe/London", label: "London" },
 ];
 const markers = buildMarkerList(timezoneObjects.map((tz) => tz.value));
+```
+
+#### `getCanonicalMarkers(allowed?)`
+
+Returns the canonical markers array, optionally filtered to specific timezones.
+
+```tsx
+import { getCanonicalMarkers } from "react-tz-globepicker";
+
+// Get all canonical markers
+const allMarkers = getCanonicalMarkers();
+
+// Get filtered markers
+const filtered = getCanonicalMarkers(["America/New_York", "Europe/London"]);
 ```
 
 #### `CANONICAL_MARKERS`
@@ -374,6 +428,50 @@ const canonical = mapToCanonicalTz("America/Indiana/Indianapolis");
 // Returns: 'America/New_York'
 ```
 
+#### `ianaToEtc(ianaTimezone)`
+
+Convert an IANA timezone to its ETC/GMT offset identifier.
+
+```tsx
+import { ianaToEtc } from "react-tz-globepicker";
+
+const etc = ianaToEtc("America/New_York");
+// Returns: 'utc-minus-05-00'
+```
+
+#### `etcToOffset(etcTimezone)`
+
+Convert an ETC/GMT identifier to numeric offset minutes.
+
+```tsx
+import { etcToOffset } from "react-tz-globepicker";
+
+const offset = etcToOffset("utc-minus-05-00");
+// Returns: -300
+```
+
+#### `offsetKeyFromEtc(etcTimezone)`
+
+Extract the offset key from an ETC/GMT timezone identifier.
+
+```tsx
+import { offsetKeyFromEtc } from "react-tz-globepicker";
+
+const key = offsetKeyFromEtc("utc-minus-05-00");
+// Returns: '-05:00'
+```
+
+#### `IANA_TZ_DATA`
+
+Raw IANA timezone data mapping timezone identifiers to their properties.
+
+```tsx
+import { IANA_TZ_DATA } from "react-tz-globepicker";
+
+const data = IANA_TZ_DATA["America/New_York"];
+// Returns timezone data object
+```
+
 #### `utcOffsetToLongitude(offset)`
 
 Convert UTC offset to longitude center.
@@ -389,6 +487,9 @@ const longitude = utcOffsetToLongitude(-5); // -75 (Eastern US)
 ```bash
 # Install dependencies
 pnpm install
+
+# Run the interactive demo
+pnpm demo
 
 # Run linting
 pnpm lint
