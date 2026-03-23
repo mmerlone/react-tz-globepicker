@@ -1,6 +1,6 @@
 {
   "name": "@mmerlone/react-tz-globepicker",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "module",
   "workspaces": [
     "demo"
