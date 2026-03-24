@@ -4,45 +4,21 @@
 [![npm downloads](https://img.shields.io/npm/dm/@mmerlone/react-tz-globepicker.svg)](https://www.npmjs.com/package/@mmerlone/react-tz-globepicker)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Interactive 3D globe component for timezone selection with React.
+Interactive globe picker for React applications that need timezone selection, timezone visualization, or a compact world-time UI.
 
 ![TZ Globe Picker Demo](tzglobepicker.png)
 
-Try the [interactive online demo →](https://ywybase.vercel.app/demos/react-tz-globepicker)
+Try the [interactive online demo](https://ywybase.vercel.app/demos/react-tz-globepicker).
 
 ## Features
 
-- Interactive 3D globe visualization with drag-to-rotate and zoom
-- Clickable timezone markers with hover tooltips
-- Animated fly-to transitions when selecting timezones
-- Multiple visualization modes (nautic bands, etc-gmt boundaries, iana country-level)
-- Bundled timezone data for easy setup
-
-## Timezone Boundary Modes
-
-The `showTZBoundaries` prop controls how timezone regions are visualized on the globe:
-
-### Nautic Mode (`nautic`)
-
-Displays timezone regions as 15-degree longitudinal bands based on the timezone's canonical UTC offset. This is the fastest mode to compute but provides less precise boundaries.
-
-![Nautic Mode](nautic.png)
-
-### ETC/GMT Mode (`etc-gmt`)
-
-Displays merged high-level timezone shapes based on ETC/GMT offset buckets. Each region represents all areas sharing the same UTC offset (e.g., UTC+1, UTC-5).
-
-![ETC/GMT Mode](etcgmt.png)
-
-### IANA Mode (`iana`)
-
-Displays individual country-level polygons based on IANA timezone data. This provides the most detailed and accurate boundaries.
-
-![IANA Mode](iana.png)
-
-### None Mode (`none`)
-
-Displays no timezone boundaries or highlights.
+- Drag-to-rotate globe interaction with wheel zoom
+- Clickable timezone markers with optional tooltips
+- Animated fly-to transitions when the selected timezone changes
+- Multiple timezone boundary modes: `none`, `nautic`, `etc-gmt`, and `iana`
+- Bundled geodata with no extra runtime setup
+- Custom colors, custom backgrounds, controlled zoom, and imperative `ref` methods
+- Framework-agnostic styling: no CSS framework required
 
 ## Installation
 
@@ -54,121 +30,18 @@ npm install @mmerlone/react-tz-globepicker
 yarn add @mmerlone/react-tz-globepicker
 ```
 
-## Peer Dependencies
+### Peer dependencies
 
-This package requires the following peer dependencies:
+- `react` `^19.0.0`
+- `react-dom` `^19.0.0`
 
-- `react` ^19.0.0
-- `react-dom` ^19.0.0
-
-## Complete Example
-
-Here's a complete example showing how to use the utilities together, similar to how they're used in production applications:
+## Quick Start
 
 ```tsx
-import React, { useState, useEffect } from "react";
-import {
-  TzGlobePicker,
-  buildMarkerList,
-} from "react-tz-globepicker";
+import * as React from "react";
+import { TzGlobePicker } from "@mmerlone/react-tz-globepicker";
 
-interface TimezoneOption {
-  value: string;
-  label: string;
-}
-
-// You would typically get this from your own API or timezone utilities
-const mockTimezones: TimezoneOption[] = [
-  { value: "America/New_York", label: "America/New York (UTC-5)" },
-  { value: "Europe/London", label: "Europe/London (UTC+0)" },
-  { value: "Asia/Tokyo", label: "Asia/Tokyo (UTC+9)" },
-  { value: "Australia/Sydney", label: "Australia/Sydney (UTC+10)" },
-];
-
-function TimezoneSelector() {
-  const [selectedTimezone, setSelectedTimezone] = useState<string | null>(
-    "America/New_York",
-  );
-  const [timezones, setTimezones] = useState<TimezoneOption[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Load available timezones (you'd typically get this from your own API)
-    setTimeout(() => {
-      setTimezones(mockTimezones);
-      setIsLoading(false);
-    }, 500);
-  }, []);
-
-  // Generate markers for the globe from available timezones
-  const markers = buildMarkerList(timezones.map((tz) => tz.value));
-
-  return (
-    <div style={{ display: "flex", gap: "2rem", padding: "2rem" }}>
-      {/* Globe Component */}
-      <div>
-        <h3>Select Timezone on Globe</h3>
-        <TzGlobePicker
-          timezone={selectedTimezone}
-          size={350}
-          onSelect={(tz) => setSelectedTimezone(tz)}
-          markers={markers}
-          showTooltips={true}
-          zoomMarkers={true}
-          showCountryBorders={true}
-          showTZBoundaries="etc-gmt"
-        />
-      </div>
-
-      {/* Dropdown Selector */}
-      <div style={{ minWidth: "300px" }}>
-        <h3>Or Select from List</h3>
-        <label htmlFor="timezone-select">Timezone</label>
-        <select
-          id="timezone-select"
-          style={{ display: "block", marginTop: "0.5rem", minWidth: "100%" }}
-          value={selectedTimezone ?? ""}
-          onChange={(event) => {
-            setSelectedTimezone(event.target.value || null);
-          }}
-          disabled={isLoading}
-        >
-          <option value="">Select your timezone...</option>
-          {timezones.map((tz) => (
-            <option key={tz.value} value={tz.value}>
-              {tz.label}
-            </option>
-          ))}
-        </select>
-
-        {selectedTimezone && (
-          <div
-            style={{
-              marginTop: "1rem",
-              padding: "1rem",
-              backgroundColor: "#f5f5f5",
-              borderRadius: "4px",
-            }}
-          >
-            <strong>Selected:</strong> {selectedTimezone}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function App() {
-  return <TimezoneSelector />;
-}
-```
-
-## Basic Usage
-
-```tsx
-import { TzGlobePicker } from "react-tz-globepicker";
-
-function App() {
+export function App(): React.ReactElement {
   const [timezone, setTimezone] = React.useState<string | null>(
     "America/New_York",
   );
@@ -177,56 +50,438 @@ function App() {
     <TzGlobePicker
       timezone={timezone}
       size={400}
-      onSelect={(tz) => setTimezone(tz)}
-      showMarkers={true}
-      showTooltips={true}
+      onSelect={setTimezone}
+      showMarkers
+      showTooltips
+      showTZBoundaries="etc-gmt"
+      showCountryBorders
     />
   );
 }
 ```
 
-## Space Background
+## Next.js And Client Components
 
-The package includes a small `SpaceBackground` React component you can pass as the `background` prop to get a starfield-style backdrop.
+`TzGlobePicker` is a client component. In Next.js App Router, use it from a file that starts with:
 
 ```tsx
-import { TzGlobePicker, SpaceBackground } from "react-tz-globepicker";
+"use client";
+```
 
-function App() {
+## Boundary Modes
+
+The `showTZBoundaries` prop controls how the currently selected timezone is highlighted.
+
+| Mode      | Best for                            | Behavior                                                      |
+| --------- | ----------------------------------- | ------------------------------------------------------------- |
+| `none`    | Minimal UI                          | No boundary highlight                                         |
+| `nautic`  | Fastest, offset-style visualization | Uses a 15-degree longitude band based on canonical UTC offset |
+| `etc-gmt` | Good default                        | Uses merged offset-region geometries                          |
+| `iana`    | Highest detail                      | Uses timezone-level IANA boundary data                        |
+
+### Preview
+
+#### Nautic (`nautic`)
+
+![Nautic Mode](nautic.png)
+
+#### ETC/GMT (`etc-gmt`)
+
+![ETC/GMT Mode](etcgmt.png)
+
+#### IANA (`iana`)
+
+![IANA Mode](iana.png)
+
+## Common Patterns
+
+### Use Custom Marker Sets
+
+If you already know which timezones should be selectable, build a marker list once and pass it in. A non-empty `markers` array will render markers even if `showMarkers` is omitted.
+
+```tsx
+import * as React from "react";
+import { TzGlobePicker, buildMarkerList } from "@mmerlone/react-tz-globepicker";
+
+const allowedTimezones = [
+  "America/New_York",
+  "Europe/London",
+  "Asia/Tokyo",
+  "Australia/Sydney",
+];
+
+const markers = buildMarkerList(allowedTimezones);
+
+export function TimezonePicker(): React.ReactElement {
+  const [timezone, setTimezone] = React.useState<string | null>(
+    "America/New_York",
+  );
+
+  return (
+    <TzGlobePicker
+      timezone={timezone}
+      onSelect={setTimezone}
+      markers={markers}
+      showTooltips
+      zoomMarkers
+      showTZBoundaries="etc-gmt"
+      showCountryBorders
+      size={360}
+    />
+  );
+}
+```
+
+### Use The Built-In Background
+
+```tsx
+import * as React from "react";
+import { SpaceBackground, TzGlobePicker } from "@mmerlone/react-tz-globepicker";
+
+export function App(): React.ReactElement {
   return (
     <TzGlobePicker
       timezone="America/New_York"
       size={400}
       onSelect={(tz) => console.log(tz)}
-      showMarkers={true}
+      showMarkers
       background={<SpaceBackground />}
     />
   );
 }
 ```
 
-
-### Boundary Mode Constants
-
-Use `TZ_BOUNDARY_MODES` to avoid string literals when setting `showTZBoundaries`:
+### Control Zoom Externally
 
 ```tsx
-import {
-  TzGlobePicker,
-  TZ_BOUNDARY_MODES,
-  type TzBoundaryMode,
-} from "react-tz-globepicker";
+import * as React from "react";
+import { TzGlobePicker } from "@mmerlone/react-tz-globepicker";
 
-function App() {
-  const [mode, setMode] = React.useState<TzBoundaryMode>(
-    TZ_BOUNDARY_MODES.ETCGMT,
-  );
+export function App(): React.ReactElement {
+  const [zoom, setZoom] = React.useState(1);
 
   return (
     <TzGlobePicker
       timezone="Europe/London"
-      showTZBoundaries={mode}
-      onSelect={(tz) => setMode(TZ_BOUNDARY_MODES.IANA)}
+      zoom={zoom}
+      onZoomChange={setZoom}
+      minZoom={1}
+      maxZoom={5}
+      showMarkers
+      size={380}
+    />
+  );
+}
+```
+
+### Use The Imperative Ref API
+
+```tsx
+import * as React from "react";
+import {
+  TzGlobePicker,
+  type TzGlobePickerRef,
+} from "@mmerlone/react-tz-globepicker";
+
+export function App(): React.ReactElement {
+  const globeRef = React.useRef<TzGlobePickerRef>(null);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => globeRef.current?.flyTo("Asia/Tokyo")}
+      >
+        Fly To Tokyo
+      </button>
+
+      <button type="button" onClick={() => globeRef.current?.reset()}>
+        Reset
+      </button>
+
+      <TzGlobePicker
+        ref={globeRef}
+        timezone="America/New_York"
+        showMarkers
+        size={360}
+      />
+    </div>
+  );
+}
+```
+
+## API Reference
+
+### `TzGlobePicker` Props
+
+| Prop                 | Type                                                | Default     | Description                                                      |
+| -------------------- | --------------------------------------------------- | ----------- | ---------------------------------------------------------------- |
+| `timezone`           | `string \| null`                                    | `null`      | Selected IANA timezone ID such as `"America/New_York"`           |
+| `size`               | `number`                                            | `250`       | Globe diameter in pixels                                         |
+| `onSelect`           | `(timezone: string) => void`                        | `undefined` | Called when a marker is clicked                                  |
+| `showMarkers`        | `boolean`                                           | `false`     | Renders the built-in canonical marker set when `true`            |
+| `showTooltips`       | `boolean`                                           | `false`     | Shows marker tooltips on hover                                   |
+| `zoomMarkers`        | `boolean`                                           | `false`     | Scales marker size with zoom                                     |
+| `minZoom`            | `number`                                            | `1`         | Minimum zoom multiplier                                          |
+| `maxZoom`            | `number`                                            | `5`         | Maximum zoom multiplier                                          |
+| `initialZoom`        | `number`                                            | `1`         | Initial zoom multiplier                                          |
+| `zoom`               | `number`                                            | `undefined` | Controlled zoom value                                            |
+| `onZoomChange`       | `(zoom: number) => void`                            | `undefined` | Called when zoom changes                                         |
+| `showTZBoundaries`   | `TzBoundaryMode`                                    | `"none"`    | Boundary visualization mode                                      |
+| `showCountryBorders` | `boolean`                                           | `false`     | Draws country borders                                            |
+| `showGeographic`     | `boolean`                                           | `false`     | Draws equator, tropics, polar circles, and IDL                   |
+| `background`         | `string \| React.ReactElement \| null \| undefined` | `undefined` | CSS background string or a background element                    |
+| `markers`            | `MarkerEntry[]`                                     | `undefined` | Explicit marker list; a non-empty array enables marker rendering |
+| `colors`             | `Partial<GlobePalette>`                             | `undefined` | Partial palette override                                         |
+| `style`              | `React.CSSProperties`                               | `undefined` | Inline styles for the outer container                            |
+| `className`          | `string`                                            | `undefined` | Class name for the outer container                               |
+| `simulatedDate`      | `Date`                                              | `undefined` | Overrides sun position calculations for testing and demos        |
+
+### `TzGlobePickerRef`
+
+```ts
+type TzGlobePickerRef = {
+  reset: () => void;
+  flyTo: (timezone: string, resetZoom?: boolean) => void;
+};
+```
+
+## Exported Components
+
+```tsx
+import {
+  ResetButton,
+  SpaceBackground,
+  TzGlobePicker,
+} from "@mmerlone/react-tz-globepicker";
+```
+
+- `TzGlobePicker`: main interactive globe component
+- `SpaceBackground`: reusable gradient background component
+- `ResetButton`: small reset control used internally and available for custom UIs
+
+## Exported Types
+
+```ts
+import type {
+  Coordinate,
+  GeoData,
+  GlobePalette,
+  GlobeState,
+  LatLng,
+  MarkerEntry,
+  RenderFn,
+  Rotation,
+  TzBoundaryMode,
+  TzGlobePickerProps,
+  TzGlobePickerRef,
+} from "@mmerlone/react-tz-globepicker";
+```
+
+## Exported Constants
+
+```ts
+import {
+  CLICK_THRESHOLD,
+  COLORS,
+  DRAG_SENSITIVITY,
+  FLY_DURATION,
+  GRATICULE_STEP,
+  HIT_RADIUS,
+  INERTIA_FRICTION,
+  INERTIA_MIN_VELOCITY,
+  MAX_BOUNDARY_AREA,
+  MAX_LATITUDE,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  TILT,
+  TZ_BOUNDARY_MODES,
+  ZOOM_SENSITIVITY,
+} from "@mmerlone/react-tz-globepicker";
+```
+
+## Exported Utilities
+
+```ts
+import {
+  buildMarkerList,
+  CANONICAL_MARKERS,
+  etcToOffset,
+  formatUtcOffset,
+  getCanonicalMarkers,
+  getSubsolarPoint,
+  getTimezoneCenter,
+  getUtcOffsetHour,
+  getUtcOffsetMinutes,
+  IANA_TZ_DATA,
+  ianaToEtc,
+  mapToCanonicalTz,
+  offsetKeyFromEtc,
+  TIMEZONE_COORDINATES,
+  utcOffsetToLongitude,
+  useGlobeState,
+} from "@mmerlone/react-tz-globepicker";
+```
+
+### Marker Utilities
+
+#### `buildMarkerList(allowed?)`
+
+Builds marker entries from the bundled timezone coordinate map.
+
+```ts
+import { buildMarkerList } from "@mmerlone/react-tz-globepicker";
+
+const allMarkers = buildMarkerList();
+const subset = buildMarkerList(["America/New_York", "Europe/London"]);
+```
+
+#### `getCanonicalMarkers()`
+
+Returns the curated built-in canonical marker list.
+
+```ts
+import { getCanonicalMarkers } from "@mmerlone/react-tz-globepicker";
+
+const markers = getCanonicalMarkers();
+```
+
+#### `CANONICAL_MARKERS`
+
+Prebuilt marker array that works well as a lightweight default.
+
+```tsx
+import {
+  CANONICAL_MARKERS,
+  TzGlobePicker,
+} from "@mmerlone/react-tz-globepicker";
+
+<TzGlobePicker markers={CANONICAL_MARKERS} />;
+```
+
+### Timezone Utilities
+
+#### `TIMEZONE_COORDINATES`
+
+Map from IANA timezone ID to approximate `[latitude, longitude]`.
+
+```ts
+import { TIMEZONE_COORDINATES } from "@mmerlone/react-tz-globepicker";
+
+const [lat, lng] = TIMEZONE_COORDINATES["America/New_York"] ?? [0, 0];
+```
+
+#### `getTimezoneCenter(timezone)`
+
+Returns an approximate `[latitude, longitude]` center, falling back to `[0, 0]` for unknown zones.
+
+```ts
+import { getTimezoneCenter } from "@mmerlone/react-tz-globepicker";
+
+const [lat, lng] = getTimezoneCenter("America/Sao_Paulo");
+```
+
+#### `getUtcOffsetMinutes(timezone)` and `getUtcOffsetHour(timezone)`
+
+Current UTC offset based on `Intl`.
+
+```ts
+import {
+  getUtcOffsetHour,
+  getUtcOffsetMinutes,
+} from "@mmerlone/react-tz-globepicker";
+
+const minutes = getUtcOffsetMinutes("America/New_York");
+const hours = getUtcOffsetHour("Asia/Kolkata");
+```
+
+#### `mapToCanonicalTz(timezone)`
+
+Maps an IANA timezone to the package's canonical timezone region set.
+
+```ts
+import { mapToCanonicalTz } from "@mmerlone/react-tz-globepicker";
+
+const canonical = mapToCanonicalTz("America/Indiana/Indianapolis");
+```
+
+#### `ianaToEtc(ianaTimezone)`
+
+Returns the canonical offset key string used by the package, such as `UTC-05:00`.
+
+```ts
+import { ianaToEtc } from "@mmerlone/react-tz-globepicker";
+
+const offsetKey = ianaToEtc("America/New_York");
+```
+
+#### `offsetKeyFromEtc(etcTimezone)`
+
+Normalizes `Etc/GMT`, `GMT`, or `UTC`-style inputs into canonical `UTC+/-HH:MM` keys.
+
+```ts
+import { offsetKeyFromEtc } from "@mmerlone/react-tz-globepicker";
+
+offsetKeyFromEtc("Etc/GMT+5"); // "UTC-05:00"
+offsetKeyFromEtc("GMT+05:30"); // "UTC+05:30"
+```
+
+#### `etcToOffset(etcTimezone)`
+
+Returns an object containing the normalized ISO-style offset key.
+
+```ts
+import { etcToOffset } from "@mmerlone/react-tz-globepicker";
+
+const normalized = etcToOffset("Etc/GMT+5");
+// { isoKey: "UTC-05:00" }
+```
+
+#### `utcOffsetToLongitude(offsetHours)`
+
+Converts an hour offset to the center longitude of the corresponding offset band.
+
+```ts
+import { utcOffsetToLongitude } from "@mmerlone/react-tz-globepicker";
+
+const longitude = utcOffsetToLongitude(-5); // -75
+```
+
+#### `IANA_TZ_DATA`
+
+Array of supported canonical IANA timezone identifiers.
+
+```ts
+import { IANA_TZ_DATA } from "@mmerlone/react-tz-globepicker";
+
+const firstTimezone = IANA_TZ_DATA[0];
+```
+
+### Advanced Hook
+
+#### `useGlobeState`
+
+This hook is exported for advanced integrations. It is not a simple app-level helper; it expects internal rendering refs and controller options similar to the library internals.
+
+## Palette Customization
+
+The `colors` prop accepts a partial `GlobePalette`:
+
+```tsx
+import * as React from "react";
+import { TzGlobePicker } from "@mmerlone/react-tz-globepicker";
+
+export function App(): React.ReactElement {
+  return (
+    <TzGlobePicker
+      timezone="Europe/London"
+      showMarkers
+      colors={{
+        ocean: "#001f3f",
+        land: "#0b6e4f",
+        selectedMarker: "#ff6b35",
+        highlightFill: "rgba(255, 107, 53, 0.28)",
+      }}
     />
   );
 }
@@ -234,288 +489,34 @@ function App() {
 
 ## Data Loading
 
-The component uses bundled timezone data and requires no additional configuration for data loading.
+The package ships with bundled timezone and country data. You do not need to fetch any extra assets in your application.
 
-### Updating Globe Data
-
-To update the bundled globe data artifacts, run:
+### Regenerating Globe Data
 
 ```bash
 pnpm gen:globe
 ```
 
-This will fetch the latest data from Natural Earth and regenerate the files in `src/data/`, including the split IANA and ETC/GMT geometry artifacts.
-
-## API Reference
-
-### TzGlobePicker Props
-
-| Prop                 | Type                                                | Default     | Description                                        |
-| -------------------- | --------------------------------------------------- | ----------- | -------------------------------------------------- |
-| `timezone`           | `string \| null`                                    | `null`      | IANA timezone identifier (e.g. "America/New_York") |
-| `size`               | `number`                                            | `250`       | Globe diameter in pixels                           |
-| `onSelect`           | `(timezone: string) => void`                        | -           | Called when a timezone marker is clicked           |
-| `showMarkers`        | `boolean`                                           | `false`     | Whether to render timezone markers                 |
-| `showTooltips`       | `boolean`                                           | `false`     | Whether to show hover tooltips on markers          |
-| `zoomMarkers`        | `boolean`                                           | `false`     | When true, markers scale with zoom level           |
-| `showTZBoundaries`   | `TzBoundaryMode`                                    | `'none'`    | Timezone boundary visualization mode               |
-| `showCountryBorders` | `boolean`                                           | `false`     | Whether to render country borders                  |
-| `showGeographic`     | `boolean`                                           | `false`     | Whether to render geographic lines                 |
-| `markers`            | `MarkerEntry[]`                                     | -           | Optional explicit marker list                      |
-| `background`         | `string \| React.ReactElement \| null \| undefined` | `undefined` | Background styling (color, JSX, or transparent)    |
-| `colors`             | `Partial<GlobePalette>`                             | -           | Custom color palette override                      |
-| `minZoom`            | `number`                                            | `MIN_ZOOM`  | Minimum zoom level                                 |
-| `maxZoom`            | `number`                                            | `MAX_ZOOM`  | Maximum zoom level                                 |
-| `initialZoom`        | `number`                                            | `1`         | Initial zoom level                                 |
-| `zoom`               | `number`                                            | -           | Optional controlled zoom value                     |
-| `onZoomChange`       | `(zoom: number) => void`                            | -           | Called when zoom level changes                     |
-| `simulatedDate`      | `Date`                                              | -           | Optional date for sun position testing             |
-| `style`              | `React.CSSProperties`                               | -           | Optional inline styles for the outer container     |
-| `className`          | `string`                                            | -           | Optional CSS class name for the outer container    |
-
-## Exported Components
-
-```typescript
-import { TzGlobePicker, SpaceBackground, ResetButton } from "react-tz-globepicker";
-```
-
-- `TzGlobePicker`: Main interactive globe component
-- `SpaceBackground`: Optional starfield-style background component
-- `ResetButton`: Reset view button component (used internally, exposed for custom implementations)
-
-## Exported Types
-
-```typescript
-import type {
-  TzGlobePickerProps,
-  TzGlobePickerRef,
-  TzBoundaryMode,
-  GlobeState,
-  MarkerEntry,
-  Coordinate,
-  LatLng,
-  Rotation,
-  GeoData,
-  RenderFn,
-  GlobePalette,
-} from "react-tz-globepicker";
-```
-
-## Exported Constants
-
-```typescript
-import {
-  TZ_BOUNDARY_MODES,
-  COLORS,
-  TILT,
-  GRATICULE_STEP,
-  MAX_BOUNDARY_AREA,
-  HIT_RADIUS,
-  CLICK_THRESHOLD,
-  FLY_DURATION,
-  DRAG_SENSITIVITY,
-  INERTIA_FRICTION,
-  INERTIA_MIN_VELOCITY,
-  MIN_ZOOM,
-  MAX_ZOOM,
-  ZOOM_SENSITIVITY,
-  MAX_LATITUDE,
-} from "react-tz-globepicker";
-```
-
-## Exported Utils
-
-```typescript
-import {
-  formatUtcOffset,
-  getSubsolarPoint,
-  getTimezoneCenter,
-  getUtcOffsetMinutes,
-  getUtcOffsetHour,
-  buildMarkerList,
-  CANONICAL_MARKERS,
-  getCanonicalMarkers,
-  TIMEZONE_COORDINATES,
-  mapToCanonicalTz,
-  utcOffsetToLongitude,
-  ianaToEtc,
-  etcToOffset,
-  offsetKeyFromEtc,
-  IANA_TZ_DATA,
-  useGlobeState,
-} from "react-tz-globepicker";
-```
-
-### Utility Functions
-
-#### `buildMarkerList(allowed?)`
-
-Builds a list of timezone markers from coordinate data. Used to generate markers for the globe.
-
-```tsx
-import { buildMarkerList } from "react-tz-globepicker";
-
-// Get markers for all timezones
-const allMarkers = buildMarkerList();
-
-// Get markers for specific timezones only
-const timezones = ["America/New_York", "Europe/London", "Asia/Tokyo"];
-const filteredMarkers = buildMarkerList(timezones);
-
-// Example: Generate markers from timezone objects with value property
-const timezoneObjects = [
-  { value: "America/New_York", label: "New York" },
-  { value: "Europe/London", label: "London" },
-];
-const markers = buildMarkerList(timezoneObjects.map((tz) => tz.value));
-```
-
-#### `getCanonicalMarkers(allowed?)`
-
-Returns the canonical markers array, optionally filtered to specific timezones.
-
-```tsx
-import { getCanonicalMarkers } from "react-tz-globepicker";
-
-// Get all canonical markers
-const allMarkers = getCanonicalMarkers();
-
-// Get filtered markers
-const filtered = getCanonicalMarkers(["America/New_York", "Europe/London"]);
-```
-
-#### `CANONICAL_MARKERS`
-
-Pre-built subset of markers filtered to canonical timezone regions (~64 entries).
-
-```tsx
-import { CANONICAL_MARKERS } from "react-tz-globepicker";
-
-// Use canonical markers for better performance
-<TzGlobePicker markers={CANONICAL_MARKERS} />;
-```
-
-#### `TIMEZONE_COORDINATES`
-
-Lookup map from IANA timezone ID to approximate [lat, lng] centroid coordinates.
-
-```tsx
-import { TIMEZONE_COORDINATES } from "react-tz-globepicker";
-
-const [lat, lng] = TIMEZONE_COORDINATES["America/New_York"] ?? [0, 0];
-console.log(`New York is at ${lat}°, ${lng}°`);
-```
-
-#### `getUtcOffsetMinutes(timezone)` & `getUtcOffsetHour(timezone)`
-
-Get current UTC offset for a timezone.
-
-```tsx
-import { getUtcOffsetMinutes, getUtcOffsetHour } from "react-tz-globepicker";
-
-const offsetMinutes = getUtcOffsetMinutes("America/New_York"); // -300 or -240 (DST)
-const offsetHours = getUtcOffsetHour("Asia/Kolkata"); // 5.5
-```
-
-#### `mapToCanonicalTz(timezone)`
-
-Map any IANA timezone to its canonical timezone-boundary-builder region.
-
-```tsx
-import { mapToCanonicalTz } from "react-tz-globepicker";
-
-const canonical = mapToCanonicalTz("America/Indiana/Indianapolis");
-// Returns: 'America/New_York'
-```
-
-#### `ianaToEtc(ianaTimezone)`
-
-Convert an IANA timezone to its ETC/GMT offset identifier.
-
-```tsx
-import { ianaToEtc } from "react-tz-globepicker";
-
-const etc = ianaToEtc("America/New_York");
-// Returns: 'utc-minus-05-00'
-```
-
-#### `etcToOffset(etcTimezone)`
-
-Convert an ETC/GMT identifier to numeric offset minutes.
-
-```tsx
-import { etcToOffset } from "react-tz-globepicker";
-
-const offset = etcToOffset("utc-minus-05-00");
-// Returns: -300
-```
-
-#### `offsetKeyFromEtc(etcTimezone)`
-
-Extract the offset key from an ETC/GMT timezone identifier.
-
-```tsx
-import { offsetKeyFromEtc } from "react-tz-globepicker";
-
-const key = offsetKeyFromEtc("utc-minus-05-00");
-// Returns: '-05:00'
-```
-
-#### `IANA_TZ_DATA`
-
-Raw IANA timezone data mapping timezone identifiers to their properties.
-
-```tsx
-import { IANA_TZ_DATA } from "react-tz-globepicker";
-
-const data = IANA_TZ_DATA["America/New_York"];
-// Returns timezone data object
-```
-
-#### `utcOffsetToLongitude(offset)`
-
-Convert UTC offset to longitude center.
-
-```tsx
-import { utcOffsetToLongitude } from "react-tz-globepicker";
-
-const longitude = utcOffsetToLongitude(-5); // -75 (Eastern US)
-```
+This regenerates the artifacts in `src/data/`, including split IANA and ETC/GMT geometry files.
 
 ## Development
 
 ```bash
-# Install dependencies
 pnpm install
-
-# Run the interactive demo
 pnpm demo
-
-# Run linting
 pnpm lint
-
-# Run type checking
 pnpm type-check
-
-# Format code
 pnpm format
-
-# Format check
 pnpm format:check
-
-# Update globe data
 pnpm gen:globe
 ```
+
+## Data Sources
+
+- [Natural Earth 10m Time Zones](https://github.com/nvkelso/natural-earth-vector)
+- [visionscarto-world-atlas](https://github.com/visionscarto/world-atlas)
+- [timezone-boundary-builder](https://github.com/evansiroky/timezone-boundary-builder)
 
 ## License
 
 MIT
-
-## Data Sources
-
-This package uses high-quality, open geodata from:
-
-- [Natural Earth 10m Time Zones](https://github.com/nvkelso/natural-earth-vector): authoritative, closed-polygon timezone boundaries. See [ne_10m_time_zones.geojson](https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_10m_time_zones.geojson).
-- [visionscarto-world-atlas](https://github.com/visionscarto/world-atlas): simplified world country boundaries (110m resolution).
-
-Data is downloaded and processed automatically by the `pnpm gen:globe` script. See `scripts/update-globe-data.ts` for details.
