@@ -10,6 +10,8 @@ Interactive globe picker for React applications that need timezone selection, ti
 
 Try the [interactive online demo](https://ywybase.vercel.app/demos/react-tz-globepicker).
 
+Created and maintained by [Marcio Merlone](https://mmerlone.dev.br)
+
 ## Features
 
 - Drag-to-rotate globe interaction with wheel zoom
